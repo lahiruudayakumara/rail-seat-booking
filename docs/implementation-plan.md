@@ -2,6 +2,8 @@
 
 Each phase ends with a demonstrable acceptance gate; core correctness precedes optional features.
 
+Implementation status: the database and backend core slice is working. Frontend completion and final clean-machine, E2E, security, and submission verification remain active.
+
 ## 1. Foundation
 
 Create monorepo/toolchain, Compose, Go/Chi API and React/Vite shells, PostgreSQL, health/readiness, environment validation, Make targets and CI foundation. Gate: one-command setup reaches healthy URLs and clean checks.
