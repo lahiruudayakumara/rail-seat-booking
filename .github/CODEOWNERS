@@ -1,0 +1,8 @@
+# Default ownership. GitHub applies the last matching rule.
+* @lahiruudayakumara
+
+/apps/api/ @lahiruudayakumara
+/database/ @lahiruudayakumara
+/apps/web/ @lahiruudayakumara
+/.github/ @lahiruudayakumara
+/docs/ @lahiruudayakumara
