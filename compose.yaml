@@ -1,0 +1,61 @@
+name: segment-train-booking
+
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-rail_booking}
+      POSTGRES_USER: ${POSTGRES_USER:-rail_app}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-local-development-only}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-rail_app} -d ${POSTGRES_DB:-rail_booking}"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  migrate:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    entrypoint: ["/usr/local/bin/migrate", "up"]
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgres://rail_app:local-development-only@db:5432/rail_booking?sslmode=disable}
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+  seed:
+    image: postgres:17-alpine
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD:-local-development-only}
+    volumes:
+      - ./database/seed:/seed:ro
+    command: ["psql", "-h", "db", "-U", "${POSTGRES_USER:-rail_app}", "-d", "${POSTGRES_DB:-rail_booking}", "-v", "ON_ERROR_STOP=1", "-f", "/seed/seed.sql"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgres://rail_app:local-development-only@db:5432/rail_booking?sslmode=disable}
+      API_PORT: 8080
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3000}
+    ports:
+      - "${API_PORT:-8080}:8080"
+    depends_on:
+      seed:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/ready"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  postgres_data:
