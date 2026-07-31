@@ -10,19 +10,27 @@
 
 ## Delivered
 
-At this stage, the complete product/architecture documentation set and OpenAPI 3.1 design are delivered. Application source, runtime Compose files, migrations and tests are intentionally not yet implemented. Update this section during implementation rather than overstating completion.
+The backend core slice is implemented: Go/Chi API, PostgreSQL migration and demonstration seed, segment availability, fare quotes, idempotent booking/cancellation, backend Compose orchestration, tests, CI and an OpenAPI 3.1 contract.
 
 Core decisions are a Go/Chi modular monolith, React/Vite web client, PostgreSQL, ordered half-open route intervals, a partial GiST exclusion constraint as final inventory authority, pgx/sqlc persistence, idempotent booking creation and integer-minor-unit fare snapshots. Direct no-payment confirmation is initial scope; only `HELD` and `CONFIRMED` block.
 
 The intended concurrency guarantee is: for one train run and physical seat, two overlapping blocking bookings cannot both commit—even across API replicas. The loser receives 409. Adjacent segments remain sellable. The planned test launches at least 10 simultaneous identical requests and proves exactly one database row succeeds.
 
-Local target is `cp .env.example .env && docker compose up --build`. Planned coverage includes domain, repository, integration, API, concurrency, frontend, E2E, migration, smoke, load and security layers.
+Local startup is `cp .env.example .env && docker compose up --build`. Backend unit tests are included; CI provisions PostgreSQL and runs the tagged 12-contender concurrency integration test three times. Frontend completion and broader E2E, load and security automation remain future work.
 
 ## Challenges, limitations and alternatives
 
 The principal challenge is modeling absence-based inventory safely under concurrency; application checks and process locks were rejected in favor of PostgreSQL range exclusion. Other trade-offs—Go vs NestJS, Chi vs Gin/Fiber, PostgreSQL vs document/NoSQL stores, sqlc vs ORM, REST vs GraphQL, and monolith vs microservices—are recorded in ADRs.
 
-Known limitations: no payment/auth implementation, group bookings, notifications, waitlist, live railway feeds, official fares/distances, production cloud deployment or completed admin UI. Demo geography/prices must be labeled illustrative. Extra-credit candidates are holds, realtime refresh, waitlists, analytics, notifications, verified localization and polished admin workflows.
+Known limitations: no payment/auth implementation, group bookings, notifications, waitlist, live railway feeds, official fares/distances, production cloud deployment or admin UI. Demo geography/prices are labelled illustrative. Extra-credit candidates are a responsive seat map, holds, realtime push, waitlists, analytics, notifications and localization.
+
+## Submission checklist
+
+- Deadline: Tuesday, August 4, 2026 at 11:59 PM
+- [Submission form](https://docs.google.com/forms/d/e/1FAIpQLSc4GG1tTq9NcYNJQZVAz-1I0lsQvzD88VNYMnJoK6_4YCczxA/viewform?usp=dialog)
+- Verify the GitHub repository is public and the default branch contains the tested implementation
+- Replace every placeholder URL, date and commit SHA above
+- Run the exact clean-clone Compose flow and capture final test output
 
 ## AI use and live ownership
 

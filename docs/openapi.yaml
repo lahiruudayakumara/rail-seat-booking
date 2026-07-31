@@ -1,0 +1,315 @@
+openapi: 3.1.0
+info:
+  title: Segment Train Booking API
+  version: 1.0.0
+  summary: Segment-aware reserved-seat booking contract
+  description: Initial documentation contract. Demo data is not official Sri Lanka Railways data.
+servers:
+  - url: http://localhost:8080
+    description: Local development
+tags:
+  - {name: Health}
+  - {name: Routes}
+  - {name: Stations}
+  - {name: Train runs}
+  - {name: Availability}
+  - {name: Fares}
+  - {name: Bookings}
+paths:
+  /health:
+    get:
+      tags: [Health]
+      operationId: getHealth
+      responses:
+        '200': {$ref: '#/components/responses/HealthResponse'}
+  /ready:
+    get:
+      tags: [Health]
+      operationId: getReadiness
+      responses:
+        '200': {$ref: '#/components/responses/HealthResponse'}
+        '503': {$ref: '#/components/responses/ServiceUnavailable'}
+  /api/v1/routes:
+    get:
+      tags: [Routes]
+      operationId: listRoutes
+      parameters: [{$ref: '#/components/parameters/Cursor'}, {$ref: '#/components/parameters/Limit'}]
+      responses:
+        '200':
+          description: Route page
+          content: {application/json: {schema: {$ref: '#/components/schemas/RoutePage'}}}
+        '400': {$ref: '#/components/responses/BadRequest'}
+  /api/v1/routes/{routeId}:
+    get:
+      tags: [Routes]
+      operationId: getRoute
+      parameters: [{$ref: '#/components/parameters/RouteId'}]
+      responses:
+        '200': {description: Route, content: {application/json: {schema: {$ref: '#/components/schemas/Route'}}}}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '404': {$ref: '#/components/responses/NotFound'}
+  /api/v1/routes/{routeId}/stations:
+    get:
+      tags: [Routes, Stations]
+      operationId: listRouteStations
+      parameters: [{$ref: '#/components/parameters/RouteId'}, {$ref: '#/components/parameters/Cursor'}, {$ref: '#/components/parameters/Limit'}]
+      responses:
+        '200': {description: Ordered stations, content: {application/json: {schema: {$ref: '#/components/schemas/StationPage'}}}}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '404': {$ref: '#/components/responses/NotFound'}
+  /api/v1/stations:
+    get:
+      tags: [Stations]
+      operationId: listStations
+      parameters: [{$ref: '#/components/parameters/Cursor'}, {$ref: '#/components/parameters/Limit'}]
+      responses:
+        '200': {description: Station page, content: {application/json: {schema: {$ref: '#/components/schemas/StationPage'}}}}
+        '400': {$ref: '#/components/responses/BadRequest'}
+  /api/v1/train-runs:
+    get:
+      tags: [Train runs]
+      operationId: listTrainRuns
+      parameters:
+        - {name: travelDate, in: query, required: true, schema: {type: string, format: date}}
+        - {name: routeId, in: query, schema: {type: string, format: uuid}}
+        - {name: originStationId, in: query, schema: {type: string, format: uuid}}
+        - {name: destinationStationId, in: query, schema: {type: string, format: uuid}}
+        - {$ref: '#/components/parameters/Cursor'}
+        - {$ref: '#/components/parameters/Limit'}
+      responses:
+        '200': {description: Run page, content: {application/json: {schema: {$ref: '#/components/schemas/TrainRunPage'}}}}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '404': {$ref: '#/components/responses/NotFound'}
+  /api/v1/train-runs/{trainRunId}:
+    get:
+      tags: [Train runs]
+      operationId: getTrainRun
+      parameters: [{$ref: '#/components/parameters/TrainRunId'}]
+      responses:
+        '200': {description: Train run, content: {application/json: {schema: {$ref: '#/components/schemas/TrainRun'}}}}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '404': {$ref: '#/components/responses/NotFound'}
+  /api/v1/train-runs/{trainRunId}/available-seats:
+    get:
+      tags: [Availability]
+      operationId: listAvailableSeats
+      parameters:
+        - {$ref: '#/components/parameters/TrainRunId'}
+        - {$ref: '#/components/parameters/OriginStationId'}
+        - {$ref: '#/components/parameters/DestinationStationId'}
+        - {name: coachClass, in: query, schema: {type: string, maxLength: 32}}
+      responses:
+        '200': {description: Availability snapshot, content: {application/json: {schema: {$ref: '#/components/schemas/AvailabilityResponse'}}}}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '422': {$ref: '#/components/responses/Unprocessable'}
+  /api/v1/fare-quotes:
+    post:
+      tags: [Fares]
+      operationId: createFareQuote
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/FareQuoteRequest'}}}}
+      responses:
+        '201': {description: Quote created, content: {application/json: {schema: {$ref: '#/components/schemas/FareQuote'}}}}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '422': {$ref: '#/components/responses/Unprocessable'}
+  /api/v1/bookings:
+    post:
+      tags: [Bookings]
+      operationId: createBooking
+      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/CreateBookingRequest'}}}}
+      responses:
+        '201': {description: Booking confirmed, headers: {Location: {schema: {type: string}}}, content: {application/json: {schema: {$ref: '#/components/schemas/Booking'}}}}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/Unprocessable'}
+        '503': {$ref: '#/components/responses/ServiceUnavailable'}
+  /api/v1/bookings/{bookingId}:
+    get:
+      security: [{bearerAuth: []}]
+      tags: [Bookings]
+      operationId: getBooking
+      parameters: [{$ref: '#/components/parameters/BookingId'}]
+      responses:
+        '200': {description: Booking, content: {application/json: {schema: {$ref: '#/components/schemas/Booking'}}}}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '404': {$ref: '#/components/responses/NotFound'}
+  /api/v1/bookings/reference/{reference}:
+    get:
+      tags: [Bookings]
+      operationId: getBookingByReference
+      parameters:
+        - {name: reference, in: path, required: true, schema: {type: string, pattern: '^BK-[A-Z0-9]{8,16}$'}}
+        - {name: X-Booking-Access-Token, in: header, required: true, schema: {type: string}}
+      responses:
+        '200': {description: Booking, content: {application/json: {schema: {$ref: '#/components/schemas/Booking'}}}}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '429': {$ref: '#/components/responses/TooManyRequests'}
+  /api/v1/bookings/{bookingId}/cancel:
+    post:
+      security: [{bearerAuth: []}]
+      tags: [Bookings]
+      operationId: cancelBooking
+      parameters: [{$ref: '#/components/parameters/BookingId'}, {$ref: '#/components/parameters/OptionalIdempotencyKey'}]
+      requestBody: {required: false, content: {application/json: {schema: {$ref: '#/components/schemas/CancelBookingRequest'}}}}
+      responses:
+        '200': {description: Cancelled or already-cancelled booking, content: {application/json: {schema: {$ref: '#/components/schemas/Booking'}}}}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/Unprocessable'}
+components:
+  securitySchemes:
+    bearerAuth: {type: http, scheme: bearer, bearerFormat: JWT, description: Future authentication placeholder}
+  parameters:
+    RouteId: {name: routeId, in: path, required: true, schema: {type: string, format: uuid}}
+    TrainRunId: {name: trainRunId, in: path, required: true, schema: {type: string, format: uuid}}
+    BookingId: {name: bookingId, in: path, required: true, schema: {type: string, format: uuid}}
+    OriginStationId: {name: originStationId, in: query, required: true, schema: {type: string, format: uuid}}
+    DestinationStationId: {name: destinationStationId, in: query, required: true, schema: {type: string, format: uuid}}
+    Cursor: {name: cursor, in: query, schema: {type: string, maxLength: 512}}
+    Limit: {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 100, default: 20}}
+    IdempotencyKey: {name: Idempotency-Key, in: header, required: true, schema: {type: string, minLength: 16, maxLength: 128}}
+    OptionalIdempotencyKey: {name: Idempotency-Key, in: header, required: false, schema: {type: string, minLength: 16, maxLength: 128}}
+  responses:
+    HealthResponse: {description: Health state, content: {application/json: {schema: {$ref: '#/components/schemas/Health'}}}}
+    BadRequest: {description: Invalid input, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+    Unauthorized: {description: Authentication required or invalid, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+    NotFound: {description: Resource not found, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+    Conflict: {description: Current state conflict, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+    Unprocessable: {description: Domain rule violation, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+    TooManyRequests: {description: Rate limit exceeded, headers: {Retry-After: {schema: {type: integer}}}, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+    ServiceUnavailable: {description: Dependency unavailable, headers: {Retry-After: {schema: {type: integer}}}, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+  schemas:
+    Health:
+      type: object
+      required: [status]
+      properties: {status: {type: string, enum: [ok, not_ready]}, checks: {type: object, additionalProperties: {type: string}}}
+    PageInfo:
+      type: object
+      required: [hasMore]
+      properties: {nextCursor: {type: [string, 'null']}, hasMore: {type: boolean}}
+    Station:
+      type: object
+      required: [id, code, name]
+      properties:
+        id: {type: string, format: uuid}
+        code: {type: string, example: KDY}
+        name: {type: string, example: Kandy}
+        position: {type: integer, minimum: 0, example: 4}
+        cumulativeDistanceKm: {type: string, pattern: '^\d+(\.\d{1,3})?$', example: '120.000'}
+    Route:
+      type: object
+      required: [id, code, name, direction, timezone]
+      properties:
+        id: {type: string, format: uuid}
+        code: {type: string, example: CF-BD-UP}
+        name: {type: string, example: Colombo Fort–Badulla}
+        direction: {type: string, example: UP_COUNTRY}
+        timezone: {type: string, example: Asia/Colombo}
+    TrainRun:
+      type: object
+      required: [id, routeId, trainId, serviceDate, departureAt, arrivalAt, status]
+      properties:
+        id: {type: string, format: uuid}
+        routeId: {type: string, format: uuid}
+        trainId: {type: string, format: uuid}
+        serviceDate: {type: string, format: date}
+        departureAt: {type: string, format: date-time}
+        arrivalAt: {type: string, format: date-time}
+        status: {type: string, enum: [SCHEDULED, BOARDING, DEPARTED, COMPLETED, CANCELLED]}
+    Seat:
+      type: object
+      required: [id, label, coachId, coachCode, coachClass, attributes]
+      properties:
+        id: {type: string, format: uuid}
+        label: {type: string, example: 12A}
+        coachId: {type: string, format: uuid}
+        coachCode: {type: string, example: R1}
+        coachClass: {type: string, example: FIRST}
+        attributes: {type: array, items: {type: string}, example: [WINDOW]}
+    Money:
+      type: object
+      required: [amountMinor, currency, currencyScale]
+      properties: {amountMinor: {type: integer, format: int64, minimum: 0, example: 46000}, currency: {type: string, pattern: '^[A-Z]{3}$', example: LKR}, currencyScale: {type: integer, minimum: 0, maximum: 4, example: 2}}
+    FareQuoteRequest:
+      type: object
+      additionalProperties: false
+      required: [trainRunId, seatId, originStationId, destinationStationId]
+      properties:
+        trainRunId: {type: string, format: uuid}
+        seatId: {type: string, format: uuid}
+        originStationId: {type: string, format: uuid}
+        destinationStationId: {type: string, format: uuid}
+    FareQuote:
+      allOf:
+        - {$ref: '#/components/schemas/Money'}
+        - type: object
+          required: [id, distanceKm, breakdown, expiresAt]
+          properties:
+            id: {type: string, format: uuid}
+            distanceKm: {type: string, example: '120.000'}
+            breakdown: {type: object, additionalProperties: {type: integer, format: int64}}
+            expiresAt: {type: string, format: date-time}
+    PassengerInput:
+      type: object
+      additionalProperties: false
+      required: [fullName]
+      properties: {fullName: {type: string, minLength: 1, maxLength: 120}, email: {type: string, format: email, maxLength: 254}, phone: {type: string, pattern: '^\+[1-9]\d{7,14}$'}}
+      anyOf: [{required: [email]}, {required: [phone]}]
+    CreateBookingRequest:
+      type: object
+      additionalProperties: false
+      required: [fareQuoteId, trainRunId, seatId, originStationId, destinationStationId, passenger]
+      properties:
+        fareQuoteId: {type: string, format: uuid}
+        trainRunId: {type: string, format: uuid}
+        seatId: {type: string, format: uuid}
+        originStationId: {type: string, format: uuid}
+        destinationStationId: {type: string, format: uuid}
+        passenger: {$ref: '#/components/schemas/PassengerInput'}
+    Booking:
+      type: object
+      required: [id, reference, status, trainRunId, seat, originStationId, destinationStationId, fare, createdAt]
+      properties:
+        id: {type: string, format: uuid}
+        reference: {type: string, example: BK-7J4M9Q2X}
+        status: {type: string, enum: [PENDING, HELD, CONFIRMED, CANCELLED, EXPIRED, COMPLETED]}
+        trainRunId: {type: string, format: uuid}
+        seat: {$ref: '#/components/schemas/Seat'}
+        originStationId: {type: string, format: uuid}
+        destinationStationId: {type: string, format: uuid}
+        fare: {$ref: '#/components/schemas/Money'}
+        createdAt: {type: string, format: date-time}
+        confirmedAt: {type: [string, 'null'], format: date-time}
+        cancelledAt: {type: [string, 'null'], format: date-time}
+    CancelBookingRequest:
+      type: object
+      additionalProperties: false
+      properties: {reason: {type: string, maxLength: 500}}
+    AvailabilityResponse:
+      type: object
+      required: [trainRunId, originStationId, destinationStationId, items]
+      properties:
+        trainRunId: {type: string, format: uuid}
+        originStationId: {type: string, format: uuid}
+        destinationStationId: {type: string, format: uuid}
+        items: {type: array, items: {$ref: '#/components/schemas/Seat'}}
+    RoutePage: {type: object, required: [items, page], properties: {items: {type: array, items: {$ref: '#/components/schemas/Route'}}, page: {$ref: '#/components/schemas/PageInfo'}}}
+    StationPage: {type: object, required: [items, page], properties: {items: {type: array, items: {$ref: '#/components/schemas/Station'}}, page: {$ref: '#/components/schemas/PageInfo'}}}
+    TrainRunPage: {type: object, required: [items, page], properties: {items: {type: array, items: {$ref: '#/components/schemas/TrainRun'}}, page: {$ref: '#/components/schemas/PageInfo'}}}
+    FieldError:
+      type: object
+      required: [field, message]
+      properties: {field: {type: string}, message: {type: string}}
+    Error:
+      type: object
+      required: [code, message, requestId]
+      properties:
+        code: {type: string, example: VALIDATION_ERROR}
+        message: {type: string, example: The request contains invalid fields.}
+        details: {oneOf: [{type: array, items: {$ref: '#/components/schemas/FieldError'}}, {type: object, additionalProperties: true}]}
+        requestId: {type: string, format: uuid}
