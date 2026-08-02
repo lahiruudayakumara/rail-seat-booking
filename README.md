@@ -12,7 +12,7 @@ Whole-journey allocation wastes capacity. This system assigns every route statio
 - Segment-aware availability, expiring seat holds, fare quotes, verified booking lookup, cancellation, references, and audit events
 - Idempotent booking and sandbox payment flows with database-safe concurrency
 - Ticket credentials and privacy-preserving ticket verification
-- Transactional full refunds, ticket cancellation, and notification outbox events
+- Transactional full refunds, ticket cancellation, and retrying notification outbox delivery
 - Protected train-run dashboards for segment utilization, revenue, refunds, and delivery health
 - Responsive, accessible booking flow and an OpenAPI 3.1 contract
 - Interactive coach-by-coach seat map with conflict recovery

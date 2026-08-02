@@ -49,6 +49,7 @@ services:
       MANAGEMENT_TOKEN_SECRET: ${MANAGEMENT_TOKEN_SECRET:-local-development-management-secret-change-me}
       ADMIN_API_KEY: ${ADMIN_API_KEY:-local-development-admin-key-change-me}
       SEAT_HOLD_TTL: ${SEAT_HOLD_TTL:-10m}
+      OUTBOX_POLL_INTERVAL: ${OUTBOX_POLL_INTERVAL:-2s}
     ports:
       - "${API_PORT:-8080}:8080"
     depends_on:

@@ -10,42 +10,44 @@ import (
 )
 
 type Config struct {
-	Environment       string
-	APIAddress        string
-	DatabaseURL       string
-	AllowedOrigins    []string
-	ReadHeaderTimeout time.Duration
-	ReadTimeout       time.Duration
-	WriteTimeout      time.Duration
-	IdleTimeout       time.Duration
-	ShutdownTimeout   time.Duration
-	DatabaseTimeout   time.Duration
-	MaxDatabaseConns  int32
-	OpenAPIPath       string
-	ManagementSecret  string
-	ManagementTTL     time.Duration
-	SeatHoldTTL       time.Duration
-	AdminAPIKey       string
+	Environment        string
+	APIAddress         string
+	DatabaseURL        string
+	AllowedOrigins     []string
+	ReadHeaderTimeout  time.Duration
+	ReadTimeout        time.Duration
+	WriteTimeout       time.Duration
+	IdleTimeout        time.Duration
+	ShutdownTimeout    time.Duration
+	DatabaseTimeout    time.Duration
+	MaxDatabaseConns   int32
+	OpenAPIPath        string
+	ManagementSecret   string
+	ManagementTTL      time.Duration
+	SeatHoldTTL        time.Duration
+	AdminAPIKey        string
+	OutboxPollInterval time.Duration
 }
 
 func Load() (Config, error) {
 	cfg := Config{
-		Environment:       value("APP_ENV", "development"),
-		APIAddress:        ":" + value("API_PORT", "8080"),
-		DatabaseURL:       value("DATABASE_URL", "postgres://rail_app:local-development-only@localhost:5432/rail_booking?sslmode=disable"),
-		AllowedOrigins:    split(value("ALLOWED_ORIGINS", "http://localhost:3000")),
-		ReadHeaderTimeout: duration("HTTP_READ_HEADER_TIMEOUT", 5*time.Second),
-		ReadTimeout:       duration("HTTP_READ_TIMEOUT", 10*time.Second),
-		WriteTimeout:      duration("HTTP_WRITE_TIMEOUT", 15*time.Second),
-		IdleTimeout:       duration("HTTP_IDLE_TIMEOUT", 60*time.Second),
-		ShutdownTimeout:   duration("HTTP_SHUTDOWN_TIMEOUT", 10*time.Second),
-		DatabaseTimeout:   duration("DATABASE_TIMEOUT", 3*time.Second),
-		MaxDatabaseConns:  int32Value("DATABASE_MAX_CONNECTIONS", 20),
-		OpenAPIPath:       value("OPENAPI_PATH", "docs/openapi.yaml"),
-		ManagementSecret:  value("MANAGEMENT_TOKEN_SECRET", "local-development-management-secret-change-me"),
-		ManagementTTL:     duration("MANAGEMENT_TOKEN_TTL", 30*time.Minute),
-		SeatHoldTTL:       duration("SEAT_HOLD_TTL", 10*time.Minute),
-		AdminAPIKey:       value("ADMIN_API_KEY", "local-development-admin-key-change-me"),
+		Environment:        value("APP_ENV", "development"),
+		APIAddress:         ":" + value("API_PORT", "8080"),
+		DatabaseURL:        value("DATABASE_URL", "postgres://rail_app:local-development-only@localhost:5432/rail_booking?sslmode=disable"),
+		AllowedOrigins:     split(value("ALLOWED_ORIGINS", "http://localhost:3000")),
+		ReadHeaderTimeout:  duration("HTTP_READ_HEADER_TIMEOUT", 5*time.Second),
+		ReadTimeout:        duration("HTTP_READ_TIMEOUT", 10*time.Second),
+		WriteTimeout:       duration("HTTP_WRITE_TIMEOUT", 15*time.Second),
+		IdleTimeout:        duration("HTTP_IDLE_TIMEOUT", 60*time.Second),
+		ShutdownTimeout:    duration("HTTP_SHUTDOWN_TIMEOUT", 10*time.Second),
+		DatabaseTimeout:    duration("DATABASE_TIMEOUT", 3*time.Second),
+		MaxDatabaseConns:   int32Value("DATABASE_MAX_CONNECTIONS", 20),
+		OpenAPIPath:        value("OPENAPI_PATH", "docs/openapi.yaml"),
+		ManagementSecret:   value("MANAGEMENT_TOKEN_SECRET", "local-development-management-secret-change-me"),
+		ManagementTTL:      duration("MANAGEMENT_TOKEN_TTL", 30*time.Minute),
+		SeatHoldTTL:        duration("SEAT_HOLD_TTL", 10*time.Minute),
+		AdminAPIKey:        value("ADMIN_API_KEY", "local-development-admin-key-change-me"),
+		OutboxPollInterval: duration("OUTBOX_POLL_INTERVAL", 2*time.Second),
 	}
 	if cfg.DatabaseURL == "" {
 		return Config{}, fmt.Errorf("DATABASE_URL is required")

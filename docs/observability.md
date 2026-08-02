@@ -1,5 +1,11 @@
 # Observability
 
+## Notification delivery
+
+Booking confirmation and cancellation transactions write durable outbox events. Each API process runs a bounded dispatcher using PostgreSQL `FOR UPDATE SKIP LOCKED`, so multiple replicas may safely compete for work. Failed deliveries use capped exponential backoff, and abandoned `PROCESSING` leases become eligible again after five minutes. The admin train-run dashboard exposes pending or failed deliveries; structured logs include message ID, topic, and attempt without passenger data.
+
+Local development uses the log notification provider. Production deployments must replace it with the selected email/SMS adapter and configure that provider's credentials outside version control.
+
 Use OpenTelemetry-compatible boundaries but begin with structured JSON logs and Prometheus metrics. Every request gets an accepted/generated UUID `request_id`; propagate a W3C trace/correlation ID to future dependencies. Return `X-Request-ID`. Log route templates, never high-cardinality raw paths, passenger data, tokens, references or request bodies.
 
 | Metric | Type/labels | Purpose |

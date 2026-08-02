@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/lahiruudayakumara/rail-seat-booking/apps/api/internal/app"
 	"github.com/lahiruudayakumara/rail-seat-booking/apps/api/internal/config"
+	"github.com/lahiruudayakumara/rail-seat-booking/apps/api/internal/notification"
 )
 
 func main() {
@@ -32,6 +33,10 @@ func main() {
 		os.Exit(1)
 	}
 	defer pool.Close()
+	stop, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer cancel()
+	notificationWorker := notification.NewWorker(notification.NewRepository(pool), notification.NewLogProvider(logger), logger, cfg.OutboxPollInterval)
+	go notificationWorker.Run(stop)
 
 	server := &http.Server{
 		Addr:              cfg.APIAddress,
@@ -50,8 +55,6 @@ func main() {
 		}
 	}()
 
-	stop, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
-	defer cancel()
 	<-stop.Done()
 	ctx, release := context.WithTimeout(context.Background(), cfg.ShutdownTimeout)
 	defer release()
