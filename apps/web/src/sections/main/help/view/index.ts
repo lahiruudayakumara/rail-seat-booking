@@ -1,0 +1,1 @@
+export { default as HelpView } from "@/sections/main/help/view/help-view";

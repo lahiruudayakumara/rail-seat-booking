@@ -1,0 +1,1 @@
+export { default as BookingView } from "@/sections/main/booking/view/booking-view";

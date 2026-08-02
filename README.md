@@ -12,13 +12,14 @@ Whole-journey allocation wastes capacity. This system assigns every route statio
 - Segment-aware availability, fare quotes, booking lookup, cancellation, references, and audit events
 - Idempotent booking creation and database-safe concurrency
 - Responsive, accessible booking flow and an OpenAPI 3.1 contract
+- Interactive coach-by-coach seat map with conflict recovery
 - UTC persistence with `Asia/Colombo` schedule presentation
 
 The initial scope uses direct confirmation without payment. `HELD` and `CONFIRMED` block inventory; `CANCELLED`, `EXPIRED`, and `COMPLETED` do not.
 
 ## Technology
 
-Go, Chi, pgx, Goose, PostgreSQL, OpenAPI 3.1 and `slog`; React, TypeScript and Vite; Docker Compose, GitHub Actions and Make; Go tests.
+Go, Chi, pgx, Goose, PostgreSQL, OpenAPI 3.1 and `slog`; React, TypeScript, Vite and TanStack Query; Docker Compose, GitHub Actions and Make; Go tests plus Vitest and React Testing Library.
 
 ## Architecture
 
@@ -50,7 +51,7 @@ Expected services:
 | OpenAPI/Swagger | http://localhost:8080/docs |
 | PostgreSQL | Internal Compose service `db:5432` |
 
-Docker Compose waits for PostgreSQL, applies Goose migrations, loads idempotent demonstration data, and starts the API. Full instructions are in [local development](docs/local-development.md).
+Docker Compose waits for PostgreSQL, applies Goose migrations, loads idempotent demonstration data, starts the API, and finally starts the web application. Full instructions are in [local development](docs/local-development.md).
 
 Environment values are documented in `.env.example` using safe local placeholders only. Secrets must never be committed. Useful commands are `make seed`, `make test`, `make logs`, `make down`, and `make reset`.
 
@@ -98,7 +99,7 @@ Secure defaults include parameterized SQL, strict validation, least-privilege DB
 
 ## Limitations and future work
 
-Initial scope excludes payment capture, authentication implementation, waitlists, notifications, real-time push, multi-seat/group atomic booking, live railway feeds, refunds and production cloud deployment. Candidate future extras include a seat-map visualization, holds, admin/revenue analytics, waitlists, WebSocket/SSE updates, multilingual UX and verified official schedules/fares.
+Initial scope excludes payment capture, authentication implementation, waitlists, notifications, real-time push, multi-seat/group atomic booking, live railway feeds, refunds and production cloud deployment. The implemented extra-credit feature is a responsive seat-map visualization with explicit 409 conflict recovery that refreshes seats while preserving passenger form data. Candidate future extras include holds, admin/revenue analytics, waitlists, WebSocket/SSE updates, multilingual UX and verified official schedules/fares.
 
 ## License
 
