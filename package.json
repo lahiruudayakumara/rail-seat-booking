@@ -1,0 +1,12 @@
+{
+  "name": "segment-train-booking",
+  "private": true,
+  "packageManager": "pnpm@11.14.0",
+  "scripts": {
+    "dev": "pnpm --filter @rail/web dev",
+    "build": "pnpm --filter @rail/web build",
+    "lint": "pnpm --filter @rail/web lint",
+    "typecheck": "pnpm --filter @rail/web typecheck",
+    "test": "pnpm --filter @rail/web test"
+  }
+}
