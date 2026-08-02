@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/lahiruudayakumara/rail-seat-booking/apps/api/internal/httpmiddleware"
+	"github.com/lahiruudayakumara/rail-seat-booking/apps/api/internal/platform/apperror"
 	"github.com/lahiruudayakumara/rail-seat-booking/apps/api/internal/platform/httpx"
 )
 
@@ -60,7 +61,7 @@ func (h *Handler) payHereStatus(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) payHereWebhook(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, 64<<10)
 	if err := r.ParseForm(); err != nil {
-		httpx.WriteError(w, r, h.logger, err)
+		httpx.WriteError(w, r, h.logger, apperror.Validation("body", "A valid PayHere notification form is required."))
 		return
 	}
 	if err := h.service.HandlePayHereWebhook(r.Context(), r.PostForm, httpx.RequestID(r)); err != nil {
