@@ -59,13 +59,13 @@ func (r *Repository) LockPayable(ctx context.Context, db database.DBTX, bookingI
 
 func (r *Repository) FindPayHereCheckoutByKey(ctx context.Context, db database.DBTX, keyHash string) (payHereCheckoutRecord, error) {
 	var item payHereCheckoutRecord
-	err := db.QueryRow(ctx, `SELECT pay.id,pay.booking_id,pay.status,b.status,pay.amount_minor,pay.currency,b.hold_expires_at,p.full_name,COALESCE(p.email_normalized,''),COALESCE(p.phone_e164,'') FROM payments pay JOIN bookings b ON b.id=pay.booking_id JOIN passengers p ON p.id=b.passenger_id WHERE pay.provider='PAYHERE' AND pay.idempotency_key_hash=$1`, keyHash).Scan(&item.PaymentID, &item.BookingID, &item.Status, &item.BookingStatus, &item.AmountMinor, &item.Currency, &item.ExpiresAt, &item.FullName, &item.Email, &item.Phone)
+	err := db.QueryRow(ctx, `SELECT pay.id,pay.booking_id,pay.status,b.status,pay.amount_minor,pay.currency,COALESCE(b.hold_expires_at,pay.updated_at),p.full_name,COALESCE(p.email_normalized,''),COALESCE(p.phone_e164,'') FROM payments pay JOIN bookings b ON b.id=pay.booking_id JOIN passengers p ON p.id=b.passenger_id WHERE pay.provider='PAYHERE' AND pay.idempotency_key_hash=$1`, keyHash).Scan(&item.PaymentID, &item.BookingID, &item.Status, &item.BookingStatus, &item.AmountMinor, &item.Currency, &item.ExpiresAt, &item.FullName, &item.Email, &item.Phone)
 	return item, err
 }
 
 func (r *Repository) FindPendingPayHereByBooking(ctx context.Context, db database.DBTX, bookingID uuid.UUID) (payHereCheckoutRecord, error) {
 	var item payHereCheckoutRecord
-	err := db.QueryRow(ctx, `SELECT pay.id,pay.booking_id,pay.status,b.status,pay.amount_minor,pay.currency,b.hold_expires_at,p.full_name,COALESCE(p.email_normalized,''),COALESCE(p.phone_e164,'') FROM payments pay JOIN bookings b ON b.id=pay.booking_id JOIN passengers p ON p.id=b.passenger_id WHERE pay.provider='PAYHERE' AND pay.booking_id=$1 AND pay.status='PENDING'`, bookingID).Scan(&item.PaymentID, &item.BookingID, &item.Status, &item.BookingStatus, &item.AmountMinor, &item.Currency, &item.ExpiresAt, &item.FullName, &item.Email, &item.Phone)
+	err := db.QueryRow(ctx, `SELECT pay.id,pay.booking_id,pay.status,b.status,pay.amount_minor,pay.currency,COALESCE(b.hold_expires_at,pay.updated_at),p.full_name,COALESCE(p.email_normalized,''),COALESCE(p.phone_e164,'') FROM payments pay JOIN bookings b ON b.id=pay.booking_id JOIN passengers p ON p.id=b.passenger_id WHERE pay.provider='PAYHERE' AND pay.booking_id=$1 AND pay.status='PENDING'`, bookingID).Scan(&item.PaymentID, &item.BookingID, &item.Status, &item.BookingStatus, &item.AmountMinor, &item.Currency, &item.ExpiresAt, &item.FullName, &item.Email, &item.Phone)
 	return item, err
 }
 
@@ -79,7 +79,7 @@ func (r *Repository) InsertPayHerePending(ctx context.Context, db database.DBTX,
 
 func (r *Repository) LockPayHereOrder(ctx context.Context, db database.DBTX, orderID uuid.UUID) (payHereCheckoutRecord, error) {
 	var item payHereCheckoutRecord
-	err := db.QueryRow(ctx, `SELECT pay.id,pay.booking_id,pay.status,b.status,pay.amount_minor,pay.currency,b.hold_expires_at,p.full_name,COALESCE(p.email_normalized,''),COALESCE(p.phone_e164,'') FROM payments pay JOIN bookings b ON b.id=pay.booking_id JOIN passengers p ON p.id=b.passenger_id WHERE pay.provider='PAYHERE' AND pay.id=$1 FOR UPDATE OF pay,b`, orderID).Scan(&item.PaymentID, &item.BookingID, &item.Status, &item.BookingStatus, &item.AmountMinor, &item.Currency, &item.ExpiresAt, &item.FullName, &item.Email, &item.Phone)
+	err := db.QueryRow(ctx, `SELECT pay.id,pay.booking_id,pay.status,b.status,pay.amount_minor,pay.currency,COALESCE(b.hold_expires_at,pay.updated_at),p.full_name,COALESCE(p.email_normalized,''),COALESCE(p.phone_e164,'') FROM payments pay JOIN bookings b ON b.id=pay.booking_id JOIN passengers p ON p.id=b.passenger_id WHERE pay.provider='PAYHERE' AND pay.id=$1 FOR UPDATE OF pay,b`, orderID).Scan(&item.PaymentID, &item.BookingID, &item.Status, &item.BookingStatus, &item.AmountMinor, &item.Currency, &item.ExpiresAt, &item.FullName, &item.Email, &item.Phone)
 	return item, err
 }
 
