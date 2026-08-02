@@ -1,0 +1,16 @@
+@baseUrl = http://localhost:8080
+@routeId = 10000000-0000-4000-8000-000000000001
+@travelDate = 2026-08-02
+
+### Configured routes
+GET {{baseUrl}}/api/v1/routes
+Accept: application/json
+
+### Ordered stations
+GET {{baseUrl}}/api/v1/routes/{{routeId}}/stations
+Accept: application/json
+
+### Train runs
+# Change travelDate to today or another date covered by the demonstration seed.
+GET {{baseUrl}}/api/v1/train-runs?travelDate={{travelDate}}&routeId={{routeId}}
+Accept: application/json

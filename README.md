@@ -53,7 +53,7 @@ Expected services:
 
 Docker Compose waits for PostgreSQL, applies Goose migrations, loads idempotent demonstration data, starts the API, and finally starts the web application. Full instructions are in [local development](docs/local-development.md).
 
-Environment values are documented in `.env.example` using safe local placeholders only. Secrets must never be committed. Useful commands are `make seed`, `make test`, `make logs`, `make down`, and `make reset`.
+Environment values are documented in `.env.example` using safe local placeholders only. Secrets must never be committed. Useful commands are `make verify`, `make smoke`, `make integration`, `make seed`, `make logs`, `make down`, and `make reset`.
 
 ## API and behavior
 
@@ -68,16 +68,17 @@ Availability is advisory. Booking insertion occurs in a transaction; if concurre
 ```text
 apps/api/                 Go API
 apps/web/                 React application
-packages/                 generated client, shared types, shared config
 database/                 Goose migrations, sqlc queries, demo seed
 docs/                     product and engineering documentation
 scripts/                  developer/CI helpers
+tests/                    cross-service integration and load tests
+examples/api/             runnable HTTP request examples
 .github/workflows/        validation and optional release workflows
 ```
 
 The API is split by business capability, with handler, service, repository, and model boundaries where useful. Shared configuration, HTTP conventions, middleware, and database interfaces live in dedicated infrastructure packages. See [backend architecture](docs/backend-architecture.md) for the exact package tree and dependency rules.
 
-See [project structure](docs/project-structure.md) and [implementation plan](docs/implementation-plan.md).
+Operational procedures are in [runbooks](docs/runbooks/), while cross-service test prerequisites are documented in [tests](tests/README.md). See [project structure](docs/project-structure.md) and [implementation plan](docs/implementation-plan.md).
 
 ## Design decisions and alternatives
 
