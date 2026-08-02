@@ -10,13 +10,14 @@ const LookupView = () => {
   const { booking, cancelMutation } = useBookingFlow();
   const lookupMutation = useBookingLookup();
   const [refInput, setRefInput] = useState("");
+  const [contactInput, setContactInput] = useState("");
   const [searched, setSearched] = useState(false);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!refInput.trim()) return;
+    if (!refInput.trim() || !contactInput.trim()) return;
     setSearched(true);
-    lookupMutation.mutate(refInput);
+    lookupMutation.mutate({ reference: refInput, contact: contactInput });
   };
 
   return (
@@ -31,7 +32,7 @@ const LookupView = () => {
         </p>
       </div>
 
-      <form onSubmit={handleSearch} className="flex flex-col sm:flex-row gap-4 items-end">
+      <form onSubmit={handleSearch} className="grid gap-4 sm:grid-cols-[1fr_1fr_auto] items-end">
         <div className="flex-1 w-full">
           <Field label={t("lookup.inputLabel")}>
             <input
@@ -39,6 +40,19 @@ const LookupView = () => {
               value={refInput}
               onChange={(e) => {
                 setRefInput(e.target.value);
+                setSearched(false);
+              }}
+              className="w-full"
+            />
+          </Field>
+        </div>
+        <div className="w-full">
+          <Field label={t("lookup.contactLabel")}>
+            <input
+              placeholder={t("lookup.contactPlaceholder")}
+              value={contactInput}
+              onChange={(e) => {
+                setContactInput(e.target.value);
                 setSearched(false);
               }}
               className="w-full"

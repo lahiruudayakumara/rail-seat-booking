@@ -15,12 +15,13 @@ import (
 )
 
 type Service struct {
-	pool *pgxpool.Pool
-	repo *Repository
+	pool   *pgxpool.Pool
+	repo   *Repository
+	access *AccessSigner
 }
 
-func NewService(pool *pgxpool.Pool, repo *Repository) *Service {
-	return &Service{pool: pool, repo: repo}
+func NewService(pool *pgxpool.Pool, repo *Repository, access *AccessSigner) *Service {
+	return &Service{pool: pool, repo: repo, access: access}
 }
 func (s *Service) Create(ctx context.Context, request CreateRequest, idempotencyKey string, payload []byte, requestID string) (Booking, bool, error) {
 	if len(idempotencyKey) < 16 || len(idempotencyKey) > 128 {
@@ -57,6 +58,9 @@ func (s *Service) Create(ctx context.Context, request CreateRequest, idempotency
 				return Booking{}, false, apperror.Wrap(err)
 			}
 			item, err := s.Get(ctx, *bookingID)
+			if err == nil {
+				item.ManagementToken = s.access.Sign(item.ID)
+			}
 			return item, true, err
 		}
 	}
@@ -90,6 +94,9 @@ func (s *Service) Create(ctx context.Context, request CreateRequest, idempotency
 		return Booking{}, false, apperror.Wrap(err)
 	}
 	item, err := s.Get(ctx, bookingID)
+	if err == nil {
+		item.ManagementToken = s.access.Sign(item.ID)
+	}
 	return item, false, err
 }
 func (s *Service) Get(ctx context.Context, id uuid.UUID) (Booking, error) {
@@ -102,17 +109,29 @@ func (s *Service) Get(ctx context.Context, id uuid.UUID) (Booking, error) {
 	}
 	return item, nil
 }
-func (s *Service) GetByReference(ctx context.Context, reference string) (Booking, error) {
-	id, err := s.repo.FindIDByReference(ctx, s.pool, strings.ToUpper(strings.TrimSpace(reference)))
+func (s *Service) Access(ctx context.Context, request AccessRequest) (Booking, error) {
+	reference := strings.ToUpper(strings.TrimSpace(request.Reference))
+	contact := strings.TrimSpace(request.Contact)
+	if reference == "" || contact == "" {
+		return Booking{}, apperror.Validation("access", "Booking reference and email or phone are required.")
+	}
+	id, err := s.repo.FindIDByReferenceAndContact(ctx, s.pool, reference, contact)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Booking{}, apperror.New(404, "BOOKING_NOT_FOUND", "Booking was not found.", nil)
 	}
 	if err != nil {
 		return Booking{}, apperror.Wrap(err)
 	}
-	return s.Get(ctx, id)
+	item, err := s.Get(ctx, id)
+	if err == nil {
+		item.ManagementToken = s.access.Sign(item.ID)
+	}
+	return item, err
 }
-func (s *Service) Cancel(ctx context.Context, id uuid.UUID, requestID string) (Booking, error) {
+func (s *Service) Cancel(ctx context.Context, id uuid.UUID, token, requestID string) (Booking, error) {
+	if err := s.access.Verify(token, id); err != nil {
+		return Booking{}, apperror.New(401, "BOOKING_ACCESS_DENIED", "Booking access verification is required.", nil)
+	}
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return Booking{}, apperror.Wrap(err)

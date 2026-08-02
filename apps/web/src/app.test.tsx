@@ -49,6 +49,7 @@ vi.mock("@/api", () => ({
     destinationStationId: "station-2",
     fare: { amountMinor: 69000, currency: "LKR", currencyScale: 2 },
     createdAt: "2026-08-03T00:00:00Z",
+    managementToken: "test-management-token",
   }),
 }));
 
@@ -72,8 +73,12 @@ test("looks up a booking through the backend API", async () => {
   );
 
   await user.type(screen.getByRole("textbox", { name: "Booking Reference" }), "BK-TEST1234");
+  await user.type(
+    screen.getByRole("textbox", { name: "Booking email or phone" }),
+    "passenger@example.com",
+  );
   await user.click(screen.getByRole("button", { name: "Search Booking" }));
 
-  expect(getBookingByReference).toHaveBeenCalledWith("BK-TEST1234");
+  expect(getBookingByReference).toHaveBeenCalledWith("BK-TEST1234", "passenger@example.com");
   expect(await screen.findByText("BK-TEST1234")).toBeInTheDocument();
 });

@@ -7,7 +7,8 @@ export function useBookingLookup() {
   const dispatch = useAppDispatch();
 
   return useMutation({
-    mutationFn: (reference: string) => getBookingByReference(reference),
+    mutationFn: ({ reference, contact }: { reference: string; contact: string }) =>
+      getBookingByReference(reference, contact),
     onMutate: () => dispatch(setBooking(undefined)),
     onSuccess: (booking) => dispatch(setBooking(booking)),
   });

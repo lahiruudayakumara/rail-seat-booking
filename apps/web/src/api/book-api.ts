@@ -39,15 +39,18 @@ export const bookApi = {
     return res.data;
   },
 
-  cancelBooking: async (bookingId: string) => {
-    const res = await api.post<Booking>(`/api/v1/bookings/${bookingId}/cancel`, {});
+  cancelBooking: async (bookingId: string, managementToken: string) => {
+    const res = await api.post<Booking>(`/api/v1/bookings/${bookingId}/cancel`, {}, {
+      headers: { Authorization: `Bearer ${managementToken}` },
+    });
     return res.data;
   },
 
-  getBookingByReference: async (reference: string) => {
-    const res = await api.get<Booking>(
-      `/api/v1/bookings/reference/${encodeURIComponent(reference.trim())}`,
-    );
+  getBookingByReference: async (reference: string, contact: string) => {
+    const res = await api.post<Booking>("/api/v1/bookings/access", {
+      reference: reference.trim(),
+      contact: contact.trim(),
+    });
     return res.data;
   },
 };
@@ -73,12 +76,12 @@ export function createBooking(body: CreateBookingRequest) {
   return bookApi.createBooking(body);
 }
 
-export function cancelBooking(bookingId: string) {
-  return bookApi.cancelBooking(bookingId);
+export function cancelBooking(bookingId: string, managementToken: string) {
+  return bookApi.cancelBooking(bookingId, managementToken);
 }
 
-export function getBookingByReference(reference: string) {
-  return bookApi.getBookingByReference(reference);
+export function getBookingByReference(reference: string, contact: string) {
+  return bookApi.getBookingByReference(reference, contact);
 }
 
 export default bookApi;

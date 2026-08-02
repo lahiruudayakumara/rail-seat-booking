@@ -62,6 +62,7 @@ export type Booking = {
   createdAt: string;
   confirmedAt?: string;
   cancelledAt?: string;
+  managementToken?: string;
 };
 
 export type CreateBookingRequest = {

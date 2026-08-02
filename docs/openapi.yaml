@@ -141,26 +141,14 @@ paths:
         '409': {$ref: '#/components/responses/Conflict'}
         '422': {$ref: '#/components/responses/Unprocessable'}
         '503': {$ref: '#/components/responses/ServiceUnavailable'}
-  /api/v1/bookings/{bookingId}:
-    get:
-      security: [{bearerAuth: []}]
+  /api/v1/bookings/access:
+    post:
       tags: [Bookings]
-      operationId: getBooking
-      parameters: [{$ref: '#/components/parameters/BookingId'}]
+      operationId: accessBooking
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/BookingAccessRequest'}}}}
       responses:
-        '200': {description: Booking, content: {application/json: {schema: {$ref: '#/components/schemas/Booking'}}}}
-        '401': {$ref: '#/components/responses/Unauthorized'}
-        '404': {$ref: '#/components/responses/NotFound'}
-  /api/v1/bookings/reference/{reference}:
-    get:
-      tags: [Bookings]
-      operationId: getBookingByReference
-      parameters:
-        - {name: reference, in: path, required: true, schema: {type: string, pattern: '^BK-[A-Z0-9]{8,16}$'}}
-        - {name: X-Booking-Access-Token, in: header, required: true, schema: {type: string}}
-      responses:
-        '200': {description: Booking, content: {application/json: {schema: {$ref: '#/components/schemas/Booking'}}}}
-        '401': {$ref: '#/components/responses/Unauthorized'}
+        '200': {description: Verified booking with a short-lived management token, content: {application/json: {schema: {$ref: '#/components/schemas/Booking'}}}}
+        '400': {$ref: '#/components/responses/BadRequest'}
         '404': {$ref: '#/components/responses/NotFound'}
         '429': {$ref: '#/components/responses/TooManyRequests'}
   /api/v1/bookings/{bookingId}/cancel:
@@ -178,7 +166,7 @@ paths:
         '422': {$ref: '#/components/responses/Unprocessable'}
 components:
   securitySchemes:
-    bearerAuth: {type: http, scheme: bearer, bearerFormat: JWT, description: Future authentication placeholder}
+    bearerAuth: {type: http, scheme: bearer, bearerFormat: BookingManagementToken, description: Short-lived signed token issued after contact verification}
   parameters:
     RouteId: {name: routeId, in: path, required: true, schema: {type: string, format: uuid}}
     TrainRunId: {name: trainRunId, in: path, required: true, schema: {type: string, format: uuid}}
@@ -293,6 +281,13 @@ components:
         originStationId: {type: string, format: uuid}
         destinationStationId: {type: string, format: uuid}
         passenger: {$ref: '#/components/schemas/PassengerInput'}
+    BookingAccessRequest:
+      type: object
+      additionalProperties: false
+      required: [reference, contact]
+      properties:
+        reference: {type: string, pattern: '^BK-[A-Z0-9]{8,16}$'}
+        contact: {type: string, minLength: 8, maxLength: 254, description: Email address or E.164 phone used for the booking}
     Booking:
       type: object
       required: [id, reference, status, trainRunId, seat, originStationId, destinationStationId, fare, createdAt]
@@ -308,6 +303,7 @@ components:
         createdAt: {type: string, format: date-time}
         confirmedAt: {type: [string, 'null'], format: date-time}
         cancelledAt: {type: [string, 'null'], format: date-time}
+        managementToken: {type: string, description: Short-lived opaque token for managing this booking}
     CancelBookingRequest:
       type: object
       additionalProperties: false

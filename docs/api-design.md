@@ -22,8 +22,7 @@ Public search/quote/create endpoints are initially anonymous and rate-limited. U
 | `GET /api/v1/train-runs/{trainRunId}/seat-map` | Required origin/destination UUIDs; optional `coachClass` | 200 all reserved seats with segment status | 400,404,422 | Public/rate-limited; snapshot only |
 | `POST /api/v1/fare-quotes` | Quote run, seat and endpoints | 201 quote | 400,404,422 | Public/rate-limited; semantically idempotent but creates quote ID |
 | `POST /api/v1/bookings` | Confirm quote/seat/passenger | 201 booking; replay may be 200/201 with replay header | 400,404,409,422,503 | Public; **Idempotency-Key required** |
-| `GET /api/v1/bookings/{bookingId}` | Booking detail | 200 | 400,401/403,404 | Authenticated owner/support; safe |
-| `GET /api/v1/bookings/reference/{reference}` | Guest management lookup; verification token header/query | 200 | 401/404/429 | Guest verified; safe |
+| `POST /api/v1/bookings/access` | Verify reference plus booking email/phone | 200 booking and short-lived management token | 400,404,429 | Public/rate-limited; contact verification required |
 | `POST /api/v1/bookings/{bookingId}/cancel` | Optional `{reason}` | 200 updated booking | 400,401/403,404,409,422 | Owner/support; repeat-safe, key recommended |
 
 Path UUIDs must parse; `limit` is 1–100 (default 20); cursors are opaque. `travelDate` uses local service date. Availability validates that endpoints belong to the run route, origin precedes destination, class exists and run is future/bookable. Fare and booking additionally validate enabled reserved coach/seat. Passenger name is 1–120 characters; email/phone limits and normalization are server-side.
@@ -113,4 +112,4 @@ Cancel body is optional: `{"reason":"Plans changed"}`. Successful repeat returns
 | `INTERNAL_ERROR` | 500 | Unexpected fault | Safe bounded retry; show request ID |
 | `SERVICE_UNAVAILABLE` | 503 | DB/dependency not ready | Retry with backoff/`Retry-After` |
 
-Authentication failures use generic 401/403 messages and booking reference lookup may deliberately return indistinguishable 404 responses to resist enumeration.
+Authentication failures use generic 401/403 messages. Booking access returns the same 404 response for an unknown reference or mismatched contact to resist enumeration. Management tokens are short-lived HMAC-signed bearer credentials scoped to one booking.

@@ -23,8 +23,7 @@ func NewHandler(service *Service, logger *slog.Logger) *Handler {
 }
 func (h *Handler) Routes(r chi.Router) {
 	r.Post("/bookings", h.create)
-	r.Get("/bookings/{bookingId}", h.get)
-	r.Get("/bookings/reference/{reference}", h.getByReference)
+	r.Post("/bookings/access", h.access)
 	r.Post("/bookings/{bookingId}/cancel", h.cancel)
 }
 func (h *Handler) create(w http.ResponseWriter, r *http.Request) {
@@ -53,21 +52,15 @@ func (h *Handler) create(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Location", "/api/v1/bookings/"+item.ID.String())
 	httpx.WriteJSON(w, 201, item)
 }
-func (h *Handler) get(w http.ResponseWriter, r *http.Request) {
-	id, err := httpx.PathUUID(r, "bookingId")
-	if err != nil {
-		httpx.WriteError(w, r, h.logger, err)
+func (h *Handler) access(w http.ResponseWriter, r *http.Request) {
+	decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 16<<10))
+	decoder.DisallowUnknownFields()
+	var request AccessRequest
+	if err := decoder.Decode(&request); err != nil {
+		httpx.WriteError(w, r, h.logger, apperror.Validation("body", "Invalid JSON body."))
 		return
 	}
-	item, err := h.service.Get(r.Context(), id)
-	if err != nil {
-		httpx.WriteError(w, r, h.logger, err)
-		return
-	}
-	httpx.WriteJSON(w, 200, item)
-}
-func (h *Handler) getByReference(w http.ResponseWriter, r *http.Request) {
-	item, err := h.service.GetByReference(r.Context(), chi.URLParam(r, "reference"))
+	item, err := h.service.Access(r.Context(), request)
 	if err != nil {
 		httpx.WriteError(w, r, h.logger, err)
 		return
@@ -80,7 +73,8 @@ func (h *Handler) cancel(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, h.logger, err)
 		return
 	}
-	item, err := h.service.Cancel(r.Context(), id, httpx.RequestID(r))
+	token := strings.TrimSpace(strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer "))
+	item, err := h.service.Cancel(r.Context(), id, token, httpx.RequestID(r))
 	if err != nil {
 		httpx.WriteError(w, r, h.logger, err)
 		return

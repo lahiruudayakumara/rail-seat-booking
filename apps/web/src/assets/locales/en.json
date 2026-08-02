@@ -71,6 +71,8 @@
     "sub": "Enter your unique booking reference to view ticket status or manage your reservation.",
     "inputLabel": "Booking Reference",
     "placeholder": "e.g. REF-100001",
+    "contactLabel": "Booking email or phone",
+    "contactPlaceholder": "e.g. passenger@example.com",
     "button": "Search Booking",
     "searching": "Searching…",
     "notFound": "No active booking found with that reference code."

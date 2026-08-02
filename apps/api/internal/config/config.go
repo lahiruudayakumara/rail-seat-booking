@@ -22,6 +22,8 @@ type Config struct {
 	DatabaseTimeout   time.Duration
 	MaxDatabaseConns  int32
 	OpenAPIPath       string
+	ManagementSecret  string
+	ManagementTTL     time.Duration
 }
 
 func Load() (Config, error) {
@@ -38,12 +40,17 @@ func Load() (Config, error) {
 		DatabaseTimeout:   duration("DATABASE_TIMEOUT", 3*time.Second),
 		MaxDatabaseConns:  int32Value("DATABASE_MAX_CONNECTIONS", 20),
 		OpenAPIPath:       value("OPENAPI_PATH", "docs/openapi.yaml"),
+		ManagementSecret:  value("MANAGEMENT_TOKEN_SECRET", "local-development-management-secret-change-me"),
+		ManagementTTL:     duration("MANAGEMENT_TOKEN_TTL", 30*time.Minute),
 	}
 	if cfg.DatabaseURL == "" {
 		return Config{}, fmt.Errorf("DATABASE_URL is required")
 	}
 	if len(cfg.AllowedOrigins) == 0 {
 		return Config{}, fmt.Errorf("ALLOWED_ORIGINS must contain at least one origin")
+	}
+	if cfg.Environment == "production" && len(cfg.ManagementSecret) < 32 {
+		return Config{}, fmt.Errorf("MANAGEMENT_TOKEN_SECRET must contain at least 32 characters in production")
 	}
 	return cfg, nil
 }

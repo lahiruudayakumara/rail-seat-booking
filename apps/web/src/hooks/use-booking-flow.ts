@@ -74,7 +74,10 @@ export function useBookingFlow() {
   });
 
   const cancelMutation = useMutation({
-    mutationFn: (bookingId: string) => cancelBooking(bookingId),
+    mutationFn: (bookingId: string) => {
+      if (!booking?.managementToken) throw new Error("Booking access verification is required");
+      return cancelBooking(bookingId, booking.managementToken);
+    },
     onSuccess: () => {
       dispatch(setBooking(undefined));
       dispatch(setSelectedSeat(undefined));

@@ -20,6 +20,10 @@ type CreateRequest struct {
 	DestinationStationID uuid.UUID      `json:"destinationStationId"`
 	Passenger            PassengerInput `json:"passenger"`
 }
+type AccessRequest struct {
+	Reference string `json:"reference"`
+	Contact   string `json:"contact"`
+}
 type Booking struct {
 	ID                   uuid.UUID  `json:"id"`
 	Reference            string     `json:"reference"`
@@ -32,6 +36,7 @@ type Booking struct {
 	CreatedAt            time.Time  `json:"createdAt"`
 	ConfirmedAt          *time.Time `json:"confirmedAt,omitempty"`
 	CancelledAt          *time.Time `json:"cancelledAt,omitempty"`
+	ManagementToken      string     `json:"managementToken,omitempty"`
 }
 type QuoteSnapshot struct {
 	TrainRunID           uuid.UUID

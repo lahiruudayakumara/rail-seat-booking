@@ -58,9 +58,9 @@ func (r *Repository) Load(ctx context.Context, db database.DBTX, id uuid.UUID) (
 	}
 	return b, err
 }
-func (r *Repository) FindIDByReference(ctx context.Context, db database.DBTX, reference string) (uuid.UUID, error) {
+func (r *Repository) FindIDByReferenceAndContact(ctx context.Context, db database.DBTX, reference, contact string) (uuid.UUID, error) {
 	var id uuid.UUID
-	err := db.QueryRow(ctx, `SELECT id FROM bookings WHERE reference=$1`, reference).Scan(&id)
+	err := db.QueryRow(ctx, `SELECT b.id FROM bookings b JOIN passengers p ON p.id=b.passenger_id WHERE b.reference=$1 AND (p.email_normalized=lower($2) OR p.phone_e164=$2)`, reference, contact).Scan(&id)
 	return id, err
 }
 func (r *Repository) LockStatus(ctx context.Context, db database.DBTX, id uuid.UUID) (string, error) {
