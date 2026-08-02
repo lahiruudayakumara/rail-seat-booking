@@ -1,25 +1,24 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { QRCodeSVG } from "qrcode.react";
 import { Button, Field, InlineError, TrainFront } from "@/components";
 import { useBookingFlow } from "@/hooks/use-booking-flow";
+import { useBookingLookup } from "@/hooks/use-booking-lookup";
 import { formatMoney } from "@/utils";
 
 const LookupView = () => {
   const { t } = useTranslation();
   const { booking, cancelMutation } = useBookingFlow();
+  const lookupMutation = useBookingLookup();
   const [refInput, setRefInput] = useState("");
+  const [contactInput, setContactInput] = useState("");
   const [searched, setSearched] = useState(false);
-  const [errorMsg, setErrorMsg] = useState("");
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!refInput.trim()) return;
+    if (!refInput.trim() || !contactInput.trim()) return;
     setSearched(true);
-    if (booking && booking.reference.toLowerCase() === refInput.trim().toLowerCase()) {
-      setErrorMsg("");
-    } else {
-      setErrorMsg(t("lookup.notFound"));
-    }
+    lookupMutation.mutate({ reference: refInput, contact: contactInput });
   };
 
   return (
@@ -34,28 +33,49 @@ const LookupView = () => {
         </p>
       </div>
 
-      <form onSubmit={handleSearch} className="flex flex-col sm:flex-row gap-4 items-end">
+      <form onSubmit={handleSearch} className="grid gap-4 sm:grid-cols-[1fr_1fr_auto] items-end">
         <div className="flex-1 w-full">
           <Field label={t("lookup.inputLabel")}>
             <input
               placeholder={t("lookup.placeholder")}
               value={refInput}
-              onChange={(e) => setRefInput(e.target.value)}
+              onChange={(e) => {
+                setRefInput(e.target.value);
+                setSearched(false);
+              }}
               className="w-full"
             />
           </Field>
         </div>
-        <Button variant="primary" type="submit" className="w-full sm:w-auto">
-          {t("lookup.button")}
+        <div className="w-full">
+          <Field label={t("lookup.contactLabel")}>
+            <input
+              placeholder={t("lookup.contactPlaceholder")}
+              value={contactInput}
+              onChange={(e) => {
+                setContactInput(e.target.value);
+                setSearched(false);
+              }}
+              className="w-full"
+            />
+          </Field>
+        </div>
+        <Button
+          variant="primary"
+          type="submit"
+          disabled={lookupMutation.isPending}
+          className="w-full sm:w-auto"
+        >
+          {lookupMutation.isPending ? t("lookup.searching") : t("lookup.button")}
         </Button>
       </form>
 
-      {searched && errorMsg && (
-        <InlineError message={errorMsg} />
+      {searched && lookupMutation.isError && (
+        <InlineError message={t("lookup.notFound")} />
       )}
 
       {/* Matching Booking Found Result */}
-      {booking && booking.reference.toLowerCase() === refInput.trim().toLowerCase() && (
+      {!lookupMutation.isPending && booking && booking.reference.toLowerCase() === refInput.trim().toLowerCase() && (
         <div className="mt-8 border-t border-stone-200 pt-6">
           <div className="ticket-card">
             <div className="ticket-header">
@@ -100,7 +120,16 @@ const LookupView = () => {
                 </div>
               </div>
 
-              <div className="ticket-stub">
+              <div className="ticket-stub flex flex-col items-center justify-between gap-3">
+                <div className="rounded bg-white p-1.5 shadow-sm border border-stone-200">
+                  <QRCodeSVG
+                    value={booking.reference}
+                    size={64}
+                    bgColor="#ffffff"
+                    fgColor="#6b1724"
+                    level="M"
+                  />
+                </div>
                 {booking.status === "CONFIRMED" && (
                   <Button
                     variant="secondary"

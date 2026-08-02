@@ -27,3 +27,15 @@ func (s *Service) List(ctx context.Context, runID, originID, destinationID uuid.
 	}
 	return items, nil
 }
+
+func (s *Service) SeatMap(ctx context.Context, runID, originID, destinationID uuid.UUID, coachClass string) ([]SeatMapItem, error) {
+	segment, err := s.journeys.Resolve(ctx, runID, originID, destinationID)
+	if err != nil {
+		return nil, err
+	}
+	items, err := s.repo.SeatMap(ctx, runID, segment, coachClass)
+	if err != nil {
+		return nil, apperror.Wrap(err)
+	}
+	return items, nil
+}

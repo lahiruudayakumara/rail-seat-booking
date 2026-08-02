@@ -2,7 +2,9 @@
 
 ## Identity and access
 
-Authentication is an explicit initial placeholder, not a claim of security completion. Public search/quote/create routes use abuse controls. Future OIDC/OAuth 2.1 access tokens identify passengers and staff; authorization is deny-by-default with owner, support and `ADMIN` policies checked in services. Admin actions require MFA, short sessions and audited least privilege. Never accept a role supplied by the client.
+Passenger accounts are optional: guest checkout remains available, while registered passengers authenticate with bcrypt-hashed credentials and revocable, high-entropy server-side sessions. The browser receives only an HTTP-only SameSite cookie; the database stores a SHA-256 token hash rather than the bearer value. Account booking history and cancellation enforce ownership in the service/repository boundary. Login and registration are rate-limited and invalid login responses do not reveal whether an email exists. Production should add verified email/phone challenges, CSRF tokens for state-changing cookie-authenticated routes, account recovery, session/device management, and preferably department-approved OIDC.
+
+Administrator authentication remains separate from passenger identity. Admin actions require MFA, short sessions and audited least privilege in production. Never accept a role supplied by the client.
 
 Guest management uses a random booking reference **plus** a separate signed access token or verified contact challenge. References use high entropy, are case-normalized, rate-limited and never reveal existence through distinguishable auth errors. UUIDs reduce sequential enumeration but are not authorization.
 
@@ -17,6 +19,7 @@ Guest management uses a random booking reference **plus** a separate signed acce
 | CORS/CSRF | Exact origins and minimal headers/methods. Bearer headers are less CSRF-prone; cookie auth requires SameSite, CSRF token and origin checks. |
 | Headers | HSTS in production, CSP, `nosniff`, Referrer-Policy, Permissions-Policy and frame denial/`frame-ancestors`. |
 | Transport | TLS 1.2+ externally and encrypted DB links; redirect HTTP; validate certificates. |
+| Payments | Generate checkout signatures server-side; verify PayHere callback signatures, amount and currency before confirmation; deduplicate callbacks; never trust browser return URLs as proof of payment. |
 | Logging | Redact names/contact, bodies, tokens, cookies, references and idempotency keys; restrict and retain logs by policy. |
 | Audit | Append-only booking/admin events with actor, request ID and before/after safe metadata; alert on gaps/tampering. |
 | Database | Separate migration/runtime/read-only roles; no public endpoint; network allowlist; runtime cannot alter schema/audit history. |

@@ -10,6 +10,7 @@ import {
   setSearched,
 } from "../store/slices/search-slice";
 import { setNotice } from "../store/slices/ui-slice";
+import { resetBookingSelection } from "../store/slices/booking-slice";
 
 export function useJourneySearch() {
   const dispatch = useAppDispatch();
@@ -59,10 +60,22 @@ export function useJourneySearch() {
     stationsQuery,
     origin,
     destination,
-    setRouteId: (id: string) => dispatch(setRouteId(id)),
-    setOriginId: (id: string) => dispatch(setOriginId(id)),
-    setDestinationId: (id: string) => dispatch(setDestinationId(id)),
-    setDate: (val: string) => dispatch(setDate(val)),
+    setRouteId: (id: string) => {
+      dispatch(setRouteId(id));
+      dispatch(resetBookingSelection());
+    },
+    setOriginId: (id: string) => {
+      dispatch(setOriginId(id));
+      dispatch(resetBookingSelection());
+    },
+    setDestinationId: (id: string) => {
+      dispatch(setDestinationId(id));
+      dispatch(resetBookingSelection());
+    },
+    setDate: (val: string) => {
+      dispatch(setDate(val));
+      dispatch(resetBookingSelection());
+    },
     handleSearch,
   };
 }

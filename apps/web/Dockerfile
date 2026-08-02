@@ -15,7 +15,9 @@ CMD ["pnpm", "--filter", "@rail/web", "dev"]
 # Build stage for static production assets
 FROM dev AS build
 ARG VITE_API_BASE_URL=http://localhost:8080
+ARG VITE_PAYMENT_PROVIDER=sandbox
 ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
+ENV VITE_PAYMENT_PROVIDER=$VITE_PAYMENT_PROVIDER
 RUN pnpm --filter @rail/web build
 
 # Production Nginx stage

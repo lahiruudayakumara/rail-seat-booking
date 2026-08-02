@@ -31,6 +31,7 @@ export type Seat = {
   coachCode: string;
   coachClass: string;
   attributes: string[];
+  availabilityStatus?: "AVAILABLE" | "BOOKED";
 };
 
 export type FareQuote = {
@@ -41,6 +42,46 @@ export type FareQuote = {
   currencyScale: number;
   breakdown: Record<string, number>;
   expiresAt: string;
+};
+
+export type BookingHold = {
+  id: string;
+  status: "HELD";
+  expiresAt: string;
+  managementToken: string;
+};
+
+export type Ticket = {
+  id: string;
+  verificationCode: string;
+  status: "ACTIVE" | "CANCELLED" | "USED";
+};
+
+export type CheckoutResult = {
+  payment: { id: string; status: string; provider: string; providerReference: string };
+  ticket: Ticket;
+  booking: Booking;
+};
+
+export type PayHereCheckoutSession = {
+  paymentId: string;
+  bookingId: string;
+  status: "PENDING";
+  expiresAt: string;
+  actionUrl: string;
+  fields: Record<string, string>;
+};
+
+export type PayHerePaymentStatus = {
+  paymentId: string;
+  bookingId: string;
+  status: "PENDING" | "PAID" | "FAILED" | "DISPUTED" | "REFUNDED";
+  providerReference: string;
+  amountMinor: number;
+  currency: string;
+  paidAt?: string;
+  booking: Booking;
+  ticket?: Ticket;
 };
 
 export type Money = {
@@ -61,9 +102,13 @@ export type Booking = {
   createdAt: string;
   confirmedAt?: string;
   cancelledAt?: string;
+  managementToken?: string;
+  refund?: { id: string; status: string; amountMinor: number; currency: string };
 };
 
 export type CreateBookingRequest = {
+  holdId: string;
+  holdToken: string;
   fareQuoteId: string;
   trainRunId: string;
   seatId: string;
@@ -81,4 +126,34 @@ export type ApiError = {
   message: string;
   details?: unknown;
   requestId?: string;
+};
+
+export type PassengerAccount = {
+  id: string;
+  fullName: string;
+  email: string;
+  phone?: string;
+  createdAt: string;
+};
+
+export type RegisterPassengerRequest = {
+  fullName: string;
+  email: string;
+  phone: string;
+  password: string;
+};
+
+export type AdminDashboard = {
+  trainRunId: string;
+  sellableSeatSegments: number;
+  occupiedSeatSegments: number;
+  segmentUtilizationPercent: number;
+  confirmedBookings: number;
+  cancelledBookings: number;
+  heldBookings: number;
+  grossRevenueMinor: number;
+  refundedMinor: number;
+  netRevenueMinor: number;
+  currency: string;
+  pendingDeliveries: number;
 };

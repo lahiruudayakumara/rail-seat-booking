@@ -2,45 +2,73 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation } from "@tanstack/react-query";
 import axios from "axios";
 import { useForm } from "react-hook-form";
+import { useEffect } from "react";
 import { z } from "zod";
 import type { ApiError } from "@/types";
-import { cancelBooking, createBooking } from "../api";
+import { cancelBooking, checkoutSandbox, createBooking, paymentProvider, redirectToPayHere, startPayHereCheckout } from "../api";
 import { useAppDispatch, useAppSelector } from "../store";
 import {
   setBooking,
+  setHold,
   setQuote,
   setRunId,
   setSelectedSeat,
+  setTicket,
 } from "../store/slices/booking-slice";
 import { setSearched } from "../store/slices/search-slice";
 import { setNotice } from "../store/slices/ui-slice";
 import { useJourneySearch } from "./use-journey-search";
 import { useSeatSelection } from "./use-seat-selection";
+import { usePassengerAuth } from "@/auth/use-passenger-auth";
 
 const passengerSchema = z.object({
-  fullName: z.string().min(2, "Full name is required"),
-  email: z.string().email("Valid email is required"),
-  phone: z.string().min(8, "Phone number is required"),
+  fullName: z.string().trim().min(2, "Full name is required"),
+  email: z.string().trim().refine((value) => !value || z.email().safeParse(value).success, "Enter a valid email address"),
+  phone: z.string().trim().refine((value) => !value || /^\+[1-9]\d{7,14}$/.test(value), "Use international format, for example +94770000000"),
+  billingAddress: z.string().trim(),
+  city: z.string().trim(),
+}).refine((value) => Boolean(value.email || value.phone), {
+  message: "Enter an email address or phone number",
+  path: ["email"],
+}).refine((value) => paymentProvider !== "payhere" || Boolean(value.email && value.phone), {
+  message: "PayHere requires both an email address and phone number",
+  path: ["phone"],
+}).refine((value) => paymentProvider !== "payhere" || value.billingAddress.length >= 3, {
+  message: "Billing address is required for PayHere",
+  path: ["billingAddress"],
+}).refine((value) => paymentProvider !== "payhere" || value.city.length >= 2, {
+  message: "City is required for PayHere",
+  path: ["city"],
 });
 
 export type PassengerFormValues = z.infer<typeof passengerSchema>;
 
 export function useBookingFlow() {
   const dispatch = useAppDispatch();
-  const { selectedSeat, quote, booking } = useAppSelector((state) => state.booking);
+  const { selectedSeat, quote, hold, booking, ticket } = useAppSelector((state) => state.booking);
   const { notice } = useAppSelector((state) => state.ui);
   const { runId, seatsQuery } = useSeatSelection();
   const { originId, destinationId } = useJourneySearch();
+  const { account } = usePassengerAuth();
 
   const form = useForm<PassengerFormValues>({
     resolver: zodResolver(passengerSchema),
-    defaultValues: { fullName: "", email: "", phone: "" },
+    defaultValues: { fullName: "", email: "", phone: "", billingAddress: "", city: "" },
   });
+
+  useEffect(() => {
+    if (!account) return;
+    form.setValue("fullName", account.fullName);
+    form.setValue("email", account.email);
+    form.setValue("phone", account.phone ?? "");
+  }, [account, form]);
 
   const bookingMutation = useMutation({
     mutationFn: (values: PassengerFormValues) => {
-      if (!runId || !selectedSeat || !quote) throw new Error("Booking selection missing");
+      if (!runId || !selectedSeat || !quote || !hold) throw new Error("Booking selection missing");
       return createBooking({
+        holdId: hold.id,
+        holdToken: hold.managementToken,
         fareQuoteId: quote.id,
         trainRunId: runId,
         seatId: selectedSeat.id,
@@ -51,11 +79,25 @@ export function useBookingFlow() {
           email: values.email,
           phone: values.phone,
         },
+      }).then(async (heldBooking) => {
+        if (!heldBooking.managementToken) throw new Error("Booking payment token missing");
+        if (paymentProvider === "payhere") {
+          const session = await startPayHereCheckout(heldBooking.id, heldBooking.managementToken, values.billingAddress, values.city);
+          return { kind: "payhere" as const, session, bookingToken: heldBooking.managementToken };
+        }
+        return { kind: "confirmed" as const, result: await checkoutSandbox(heldBooking.id, heldBooking.managementToken) };
       });
     },
     onSuccess: (data) => {
-      dispatch(setBooking(data));
+      if (data.kind === "payhere") {
+        dispatch(setNotice("Redirecting securely to PayHere Sandbox…"));
+        redirectToPayHere(data.session, data.bookingToken);
+        return;
+      }
+      dispatch(setBooking(data.result.booking));
+      dispatch(setTicket(data.result.ticket));
       dispatch(setNotice("Booking confirmed safely. Hold your reference tight."));
+      void seatsQuery.refetch();
     },
     onError: (err: Error) => {
       if (axios.isAxiosError<ApiError>(err)) {
@@ -63,6 +105,7 @@ export function useBookingFlow() {
         if (err.response?.status === 409) {
           dispatch(setSelectedSeat(undefined));
           dispatch(setQuote(undefined));
+          dispatch(setHold(undefined));
           void seatsQuery.refetch();
         }
         dispatch(setNotice(apiError?.message || "Failed to create booking"));
@@ -73,14 +116,23 @@ export function useBookingFlow() {
   });
 
   const cancelMutation = useMutation({
-    mutationFn: (bookingId: string) => cancelBooking(bookingId),
+    mutationFn: (bookingId: string) => {
+      if (!booking?.managementToken) throw new Error("Booking access verification is required");
+      return cancelBooking(bookingId, booking.managementToken);
+    },
     onSuccess: () => {
       dispatch(setBooking(undefined));
       dispatch(setSelectedSeat(undefined));
       dispatch(setQuote(undefined));
+      dispatch(setHold(undefined));
+      dispatch(setTicket(undefined));
       dispatch(setRunId(""));
       dispatch(setSearched(false));
       dispatch(setNotice("Booking cancelled. You can search again whenever ready."));
+    },
+    onError: (err: Error) => {
+      const message = axios.isAxiosError<ApiError>(err) ? err.response?.data?.message : err.message;
+      dispatch(setNotice(message || "Booking could not be cancelled. Please try again."));
     },
   });
 
@@ -88,14 +140,28 @@ export function useBookingFlow() {
     bookingMutation.mutate(values);
   };
 
+  const startOver = () => {
+    dispatch(setBooking(undefined));
+    dispatch(setTicket(undefined));
+    dispatch(setSelectedSeat(undefined));
+    dispatch(setQuote(undefined));
+    dispatch(setHold(undefined));
+    dispatch(setRunId(""));
+    dispatch(setSearched(false));
+    dispatch(setNotice(""));
+    form.reset();
+  };
+
   return {
     form,
     notice,
     booking,
+    ticket,
     selectedSeat,
     quote,
     bookingMutation,
     cancelMutation,
     submitPassenger,
+    startOver,
   };
 }

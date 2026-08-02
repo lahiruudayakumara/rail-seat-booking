@@ -15,6 +15,9 @@ tags:
   - {name: Availability}
   - {name: Fares}
   - {name: Bookings}
+  - {name: Payments}
+  - {name: Passenger accounts}
+  - {name: Administration}
 paths:
   /health:
     get:
@@ -103,6 +106,21 @@ paths:
         '400': {$ref: '#/components/responses/BadRequest'}
         '404': {$ref: '#/components/responses/NotFound'}
         '422': {$ref: '#/components/responses/Unprocessable'}
+  /api/v1/train-runs/{trainRunId}/seat-map:
+    get:
+      tags: [Availability]
+      operationId: getSeatMap
+      description: Returns every active reserved seat with availability derived for the requested half-open journey segment.
+      parameters:
+        - {$ref: '#/components/parameters/TrainRunId'}
+        - {$ref: '#/components/parameters/OriginStationId'}
+        - {$ref: '#/components/parameters/DestinationStationId'}
+        - {name: coachClass, in: query, schema: {type: string, maxLength: 32}}
+      responses:
+        '200': {description: Segment seat map snapshot, content: {application/json: {schema: {$ref: '#/components/schemas/SeatMapResponse'}}}}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '422': {$ref: '#/components/responses/Unprocessable'}
   /api/v1/fare-quotes:
     post:
       tags: [Fares]
@@ -120,37 +138,145 @@ paths:
       parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
       requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/CreateBookingRequest'}}}}
       responses:
-        '201': {description: Booking confirmed, headers: {Location: {schema: {type: string}}}, content: {application/json: {schema: {$ref: '#/components/schemas/Booking'}}}}
+        '201': {description: Held booking prepared for payment, headers: {Location: {schema: {type: string}}}, content: {application/json: {schema: {$ref: '#/components/schemas/Booking'}}}}
         '400': {$ref: '#/components/responses/BadRequest'}
         '404': {$ref: '#/components/responses/NotFound'}
         '409': {$ref: '#/components/responses/Conflict'}
         '422': {$ref: '#/components/responses/Unprocessable'}
         '503': {$ref: '#/components/responses/ServiceUnavailable'}
-  /api/v1/bookings/{bookingId}:
+  /api/v1/passenger/register:
+    post:
+      tags: [Passenger accounts]
+      operationId: registerPassenger
+      description: Creates an optional passenger account and starts an HTTP-only cookie session. Guest checkout remains available.
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/PassengerRegistration'}}}}
+      responses:
+        '201': {description: Passenger account created, content: {application/json: {schema: {$ref: '#/components/schemas/PassengerAccount'}}}}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '429': {$ref: '#/components/responses/TooManyRequests'}
+  /api/v1/passenger/login:
+    post:
+      tags: [Passenger accounts]
+      operationId: loginPassenger
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/PassengerLogin'}}}}
+      responses:
+        '200': {description: Signed-in passenger, content: {application/json: {schema: {$ref: '#/components/schemas/PassengerAccount'}}}}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '429': {$ref: '#/components/responses/TooManyRequests'}
+  /api/v1/passenger/logout:
+    post:
+      tags: [Passenger accounts]
+      operationId: logoutPassenger
+      responses:
+        '204': {description: Session revoked and cookie cleared}
+  /api/v1/passenger/me:
     get:
+      tags: [Passenger accounts]
+      operationId: getCurrentPassenger
+      security: [{passengerCookie: []}]
+      responses:
+        '200': {description: Current passenger, content: {application/json: {schema: {$ref: '#/components/schemas/PassengerAccount'}}}}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+  /api/v1/passenger/bookings:
+    get:
+      tags: [Passenger accounts, Bookings]
+      operationId: listPassengerBookings
+      security: [{passengerCookie: []}]
+      responses:
+        '200': {description: Account-owned bookings in newest-first order, content: {application/json: {schema: {$ref: '#/components/schemas/BookingPage'}}}}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+  /api/v1/booking-holds:
+    post:
+      tags: [Bookings]
+      operationId: createBookingHold
+      description: Atomically holds the quoted seat and segment for a short period.
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/BookingHoldRequest'}}}}
+      responses:
+        '201': {description: Seat held, content: {application/json: {schema: {$ref: '#/components/schemas/BookingHold'}}}}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/Unprocessable'}
+        '429': {$ref: '#/components/responses/TooManyRequests'}
+  /api/v1/bookings/access:
+    post:
+      tags: [Bookings]
+      operationId: accessBooking
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/BookingAccessRequest'}}}}
+      responses:
+        '200': {description: Verified booking with a short-lived management token, content: {application/json: {schema: {$ref: '#/components/schemas/Booking'}}}}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '429': {$ref: '#/components/responses/TooManyRequests'}
+  /api/v1/payments/sandbox:
+    post:
+      tags: [Bookings]
+      operationId: checkoutSandboxPayment
+      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
+      description: Local-development payment adapter that atomically pays, confirms, issues a ticket, and queues notification delivery.
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/SandboxCheckoutRequest'}}}}
+      responses:
+        '201': {description: Paid booking and ticket, content: {application/json: {schema: {$ref: '#/components/schemas/CheckoutResult'}}}}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/Unprocessable'}
+  /api/v1/payments/payhere:
+    post:
+      tags: [Payments]
+      operationId: startPayHereCheckout
+      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
+      description: Creates or reuses a pending PayHere checkout. The returned fields form a server-signed POST to the hosted checkout page; no merchant secret is returned.
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/PayHereCheckoutRequest'}}}}
+      responses:
+        '201': {description: Signed hosted-checkout form, content: {application/json: {schema: {$ref: '#/components/schemas/PayHereCheckoutResponse'}}}}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/Unprocessable'}
+        '503': {$ref: '#/components/responses/ServiceUnavailable'}
+  /api/v1/payments/{paymentId}:
+    get:
+      tags: [Payments]
+      operationId: getPayHerePayment
       security: [{bearerAuth: []}]
-      tags: [Bookings]
-      operationId: getBooking
-      parameters: [{$ref: '#/components/parameters/BookingId'}]
+      parameters: [{$ref: '#/components/parameters/PaymentId'}]
+      description: Returns the authoritative payment and booking state after the browser returns from hosted checkout.
       responses:
-        '200': {description: Booking, content: {application/json: {schema: {$ref: '#/components/schemas/Booking'}}}}
+        '200': {description: Current payment state and ticket when paid, content: {application/json: {schema: {$ref: '#/components/schemas/PayHerePaymentStatus'}}}}
         '401': {$ref: '#/components/responses/Unauthorized'}
         '404': {$ref: '#/components/responses/NotFound'}
-  /api/v1/bookings/reference/{reference}:
-    get:
-      tags: [Bookings]
-      operationId: getBookingByReference
-      parameters:
-        - {name: reference, in: path, required: true, schema: {type: string, pattern: '^BK-[A-Z0-9]{8,16}$'}}
-        - {name: X-Booking-Access-Token, in: header, required: true, schema: {type: string}}
+  /api/v1/webhooks/payhere:
+    post:
+      tags: [Payments]
+      operationId: receivePayHereNotification
+      description: PayHere server callback. The API verifies the provider signature, amount, currency and replay fingerprint before changing durable state.
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema: {$ref: '#/components/schemas/PayHereNotification'}
       responses:
-        '200': {description: Booking, content: {application/json: {schema: {$ref: '#/components/schemas/Booking'}}}}
+        '200': {description: Notification processed or safely deduplicated}
         '401': {$ref: '#/components/responses/Unauthorized'}
         '404': {$ref: '#/components/responses/NotFound'}
+        '422': {$ref: '#/components/responses/Unprocessable'}
+        '503': {$ref: '#/components/responses/ServiceUnavailable'}
+  /api/v1/tickets/verify:
+    post:
+      tags: [Bookings]
+      operationId: verifyTicket
+      description: Verifies a ticket credential without exposing passenger personal data.
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/VerifyTicketRequest'}}}}
+      responses:
+        '200': {description: Ticket verification result, content: {application/json: {schema: {$ref: '#/components/schemas/TicketVerification'}}}}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '422': {$ref: '#/components/responses/Unprocessable'}
         '429': {$ref: '#/components/responses/TooManyRequests'}
   /api/v1/bookings/{bookingId}/cancel:
     post:
-      security: [{bearerAuth: []}]
+      security: [{bearerAuth: []}, {passengerCookie: []}]
       tags: [Bookings]
       operationId: cancelBooking
       parameters: [{$ref: '#/components/parameters/BookingId'}, {$ref: '#/components/parameters/OptionalIdempotencyKey'}]
@@ -161,13 +287,26 @@ paths:
         '404': {$ref: '#/components/responses/NotFound'}
         '409': {$ref: '#/components/responses/Conflict'}
         '422': {$ref: '#/components/responses/Unprocessable'}
+  /api/v1/admin/train-runs/{trainRunId}/dashboard:
+    get:
+      tags: [Administration]
+      operationId: getTrainRunDashboard
+      security: [{adminAuth: []}]
+      parameters: [{$ref: '#/components/parameters/TrainRunId'}]
+      responses:
+        '200': {description: Segment utilization and financial dashboard, content: {application/json: {schema: {$ref: '#/components/schemas/AdminDashboard'}}}}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '404': {$ref: '#/components/responses/NotFound'}
 components:
   securitySchemes:
-    bearerAuth: {type: http, scheme: bearer, bearerFormat: JWT, description: Future authentication placeholder}
+    bearerAuth: {type: http, scheme: bearer, bearerFormat: BookingManagementToken, description: Short-lived signed token issued after contact verification}
+    adminAuth: {type: http, scheme: bearer, bearerFormat: AdminAPIKey, description: Server-managed department administrator credential}
+    passengerCookie: {type: apiKey, in: cookie, name: rail_passenger_session, description: Opaque revocable passenger session stored in an HTTP-only SameSite cookie}
   parameters:
     RouteId: {name: routeId, in: path, required: true, schema: {type: string, format: uuid}}
     TrainRunId: {name: trainRunId, in: path, required: true, schema: {type: string, format: uuid}}
     BookingId: {name: bookingId, in: path, required: true, schema: {type: string, format: uuid}}
+    PaymentId: {name: paymentId, in: path, required: true, schema: {type: string, format: uuid}}
     OriginStationId: {name: originStationId, in: query, required: true, schema: {type: string, format: uuid}}
     DestinationStationId: {name: destinationStationId, in: query, required: true, schema: {type: string, format: uuid}}
     Cursor: {name: cursor, in: query, schema: {type: string, maxLength: 512}}
@@ -231,6 +370,13 @@ components:
         coachCode: {type: string, example: R1}
         coachClass: {type: string, example: FIRST}
         attributes: {type: array, items: {type: string}, example: [WINDOW]}
+    SeatMapItem:
+      allOf:
+        - {$ref: '#/components/schemas/Seat'}
+        - type: object
+          required: [availabilityStatus]
+          properties:
+            availabilityStatus: {type: string, enum: [AVAILABLE, BOOKED]}
     Money:
       type: object
       required: [amountMinor, currency, currencyScale]
@@ -260,17 +406,143 @@ components:
       required: [fullName]
       properties: {fullName: {type: string, minLength: 1, maxLength: 120}, email: {type: string, format: email, maxLength: 254}, phone: {type: string, pattern: '^\+[1-9]\d{7,14}$'}}
       anyOf: [{required: [email]}, {required: [phone]}]
+    PassengerRegistration:
+      type: object
+      additionalProperties: false
+      required: [fullName, email, password]
+      properties:
+        fullName: {type: string, minLength: 2, maxLength: 120}
+        email: {type: string, format: email, maxLength: 254}
+        phone: {type: string, pattern: '^\+[1-9]\d{7,14}$'}
+        password: {type: string, minLength: 10, maxLength: 72, format: password}
+    PassengerLogin:
+      type: object
+      additionalProperties: false
+      required: [email, password]
+      properties:
+        email: {type: string, format: email, maxLength: 254}
+        password: {type: string, minLength: 1, maxLength: 72, format: password}
+    PassengerAccount:
+      type: object
+      required: [id, fullName, email, createdAt]
+      properties:
+        id: {type: string, format: uuid}
+        fullName: {type: string}
+        email: {type: string, format: email}
+        phone: {type: string}
+        createdAt: {type: string, format: date-time}
     CreateBookingRequest:
       type: object
       additionalProperties: false
-      required: [fareQuoteId, trainRunId, seatId, originStationId, destinationStationId, passenger]
+      required: [holdId, holdToken, fareQuoteId, trainRunId, seatId, originStationId, destinationStationId, passenger]
       properties:
+        holdId: {type: string, format: uuid}
+        holdToken: {type: string}
         fareQuoteId: {type: string, format: uuid}
         trainRunId: {type: string, format: uuid}
         seatId: {type: string, format: uuid}
         originStationId: {type: string, format: uuid}
         destinationStationId: {type: string, format: uuid}
         passenger: {$ref: '#/components/schemas/PassengerInput'}
+    BookingHoldRequest:
+      type: object
+      additionalProperties: false
+      required: [fareQuoteId]
+      properties:
+        fareQuoteId: {type: string, format: uuid}
+    BookingHold:
+      type: object
+      required: [id, status, expiresAt, managementToken]
+      properties:
+        id: {type: string, format: uuid}
+        status: {type: string, const: HELD}
+        expiresAt: {type: string, format: date-time}
+        managementToken: {type: string}
+    BookingAccessRequest:
+      type: object
+      additionalProperties: false
+      required: [reference, contact]
+      properties:
+        reference: {type: string, pattern: '^BK-[A-Z0-9]{8,16}$'}
+        contact: {type: string, minLength: 8, maxLength: 254, description: Email address or E.164 phone used for the booking}
+    SandboxCheckoutRequest:
+      type: object
+      additionalProperties: false
+      required: [bookingId, bookingToken]
+      properties:
+        bookingId: {type: string, format: uuid}
+        bookingToken: {type: string}
+    PayHereCheckoutRequest:
+      type: object
+      additionalProperties: false
+      required: [bookingId, bookingToken, billingAddress, city]
+      properties:
+        bookingId: {type: string, format: uuid}
+        bookingToken: {type: string}
+        billingAddress: {type: string, minLength: 3, maxLength: 200}
+        city: {type: string, minLength: 2, maxLength: 80}
+    PayHereCheckoutResponse:
+      type: object
+      required: [paymentId, bookingId, status, expiresAt, actionUrl, fields]
+      properties:
+        paymentId: {type: string, format: uuid}
+        bookingId: {type: string, format: uuid}
+        status: {type: string, const: PENDING}
+        expiresAt: {type: string, format: date-time}
+        actionUrl: {type: string, format: uri, description: PayHere hosted Sandbox or production checkout endpoint selected by server configuration}
+        fields: {type: object, additionalProperties: {type: string}, description: Signed hidden form fields to POST to actionUrl}
+    PayHerePaymentStatus:
+      type: object
+      required: [paymentId, bookingId, status, providerReference, amountMinor, currency, booking]
+      properties:
+        paymentId: {type: string, format: uuid}
+        bookingId: {type: string, format: uuid}
+        status: {type: string, enum: [PENDING, PAID, FAILED, DISPUTED]}
+        providerReference: {type: string}
+        amountMinor: {type: integer, format: int64, minimum: 0}
+        currency: {type: string, pattern: '^[A-Z]{3}$'}
+        paidAt: {type: string, format: date-time}
+        booking: {$ref: '#/components/schemas/Booking'}
+        ticket: {type: object, required: [id, verificationCode, status], properties: {id: {type: string, format: uuid}, verificationCode: {type: string}, status: {type: string, enum: [ACTIVE, CANCELLED, USED]}}}
+    PayHereNotification:
+      type: object
+      additionalProperties: true
+      required: [merchant_id, order_id, payment_id, payhere_amount, payhere_currency, status_code, md5sig]
+      properties:
+        merchant_id: {type: string}
+        order_id: {type: string, format: uuid}
+        payment_id: {type: string}
+        payhere_amount: {type: string, pattern: '^\\d+\\.\\d{2}$'}
+        payhere_currency: {type: string, pattern: '^[A-Z]{3}$'}
+        status_code: {type: string, enum: ['2', '0', '-1', '-2', '-3']}
+        md5sig: {type: string, pattern: '^[A-F0-9]{32}$'}
+    CheckoutResult:
+      type: object
+      required: [payment, ticket, booking]
+      properties:
+        payment: {type: object, additionalProperties: true}
+        ticket: {type: object, required: [id, verificationCode, status], properties: {id: {type: string, format: uuid}, verificationCode: {type: string}, status: {type: string, enum: [ACTIVE, CANCELLED, USED]}}}
+        booking: {$ref: '#/components/schemas/Booking'}
+    VerifyTicketRequest:
+      type: object
+      additionalProperties: false
+      required: [verificationCode]
+      properties: {verificationCode: {type: string, minLength: 32, maxLength: 128}}
+    TicketVerification:
+      type: object
+      required: [valid, ticketId, ticketStatus, bookingReference, bookingStatus, trainRunId, coachCode, seatLabel, originStationId, destinationStationId, verifiedAt]
+      properties:
+        valid: {type: boolean}
+        ticketId: {type: string, format: uuid}
+        ticketStatus: {type: string, enum: [ACTIVE, CANCELLED, USED]}
+        bookingReference: {type: string}
+        bookingStatus: {type: string}
+        trainRunId: {type: string, format: uuid}
+        coachCode: {type: string}
+        seatLabel: {type: string}
+        originStationId: {type: string, format: uuid}
+        destinationStationId: {type: string, format: uuid}
+        verifiedAt: {type: string, format: date-time}
     Booking:
       type: object
       required: [id, reference, status, trainRunId, seat, originStationId, destinationStationId, fare, createdAt]
@@ -286,6 +558,37 @@ components:
         createdAt: {type: string, format: date-time}
         confirmedAt: {type: [string, 'null'], format: date-time}
         cancelledAt: {type: [string, 'null'], format: date-time}
+        managementToken: {type: string, description: Short-lived opaque token for managing this booking}
+        refund: {$ref: '#/components/schemas/RefundSummary'}
+    BookingPage:
+      type: object
+      required: [items]
+      properties:
+        items: {type: array, items: {$ref: '#/components/schemas/Booking'}}
+    RefundSummary:
+      type: object
+      required: [id, status, amountMinor, currency]
+      properties:
+        id: {type: string, format: uuid}
+        status: {type: string, enum: [PENDING, SUCCEEDED, FAILED]}
+        amountMinor: {type: integer, format: int64}
+        currency: {type: string, pattern: '^[A-Z]{3}$'}
+    AdminDashboard:
+      type: object
+      required: [trainRunId, sellableSeatSegments, occupiedSeatSegments, segmentUtilizationPercent, confirmedBookings, cancelledBookings, heldBookings, grossRevenueMinor, refundedMinor, netRevenueMinor, currency, pendingDeliveries]
+      properties:
+        trainRunId: {type: string, format: uuid}
+        sellableSeatSegments: {type: integer, format: int64}
+        occupiedSeatSegments: {type: integer, format: int64}
+        segmentUtilizationPercent: {type: number, format: double}
+        confirmedBookings: {type: integer, format: int64}
+        cancelledBookings: {type: integer, format: int64}
+        heldBookings: {type: integer, format: int64}
+        grossRevenueMinor: {type: integer, format: int64}
+        refundedMinor: {type: integer, format: int64}
+        netRevenueMinor: {type: integer, format: int64}
+        currency: {type: string}
+        pendingDeliveries: {type: integer, format: int64}
     CancelBookingRequest:
       type: object
       additionalProperties: false
@@ -298,6 +601,14 @@ components:
         originStationId: {type: string, format: uuid}
         destinationStationId: {type: string, format: uuid}
         items: {type: array, items: {$ref: '#/components/schemas/Seat'}}
+    SeatMapResponse:
+      type: object
+      required: [trainRunId, originStationId, destinationStationId, items]
+      properties:
+        trainRunId: {type: string, format: uuid}
+        originStationId: {type: string, format: uuid}
+        destinationStationId: {type: string, format: uuid}
+        items: {type: array, items: {$ref: '#/components/schemas/SeatMapItem'}}
     RoutePage: {type: object, required: [items, page], properties: {items: {type: array, items: {$ref: '#/components/schemas/Route'}}, page: {$ref: '#/components/schemas/PageInfo'}}}
     StationPage: {type: object, required: [items, page], properties: {items: {type: array, items: {$ref: '#/components/schemas/Station'}}, page: {$ref: '#/components/schemas/PageInfo'}}}
     TrainRunPage: {type: object, required: [items, page], properties: {items: {type: array, items: {$ref: '#/components/schemas/TrainRun'}}, page: {$ref: '#/components/schemas/PageInfo'}}}

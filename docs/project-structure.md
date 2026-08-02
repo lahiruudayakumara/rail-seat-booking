@@ -1,39 +1,42 @@
-# Planned Monorepo Structure
+# Monorepo Structure
 
 ```text
-segment-train-booking/
+rail-seat-booking/
 ├── apps/
-│   ├── api/
-│   │   ├── cmd/server/
-│   │   ├── internal/
-│   │   └── tests/
-│   └── web/
-│       ├── src/{app,components,features,lib,pages}/
-│       └── tests/
-├── packages/
-│   ├── api-client/
-│   ├── shared-types/
-│   └── config/
+│   ├── api/                    # Go modular-monolith API and migration command
+│   └── web/                    # React/Vite passenger application
 ├── database/
-│   ├── migrations/
-│   ├── queries/
-│   └── seed/
-├── docs/adr/
-├── scripts/
-├── .github/workflows/
-├── compose.yaml
-├── Makefile
-├── .env.example
-├── .gitignore
-├── go.mod
-├── pnpm-workspace.yaml
+│   ├── migrations/             # Ordered Goose schema migrations
+│   ├── queries/                # SQL query definitions
+│   └── seed/                   # Idempotent demonstration data
+├── docs/
+│   ├── adr/                    # Architecture decision records
+│   └── runbooks/               # Operational response procedures
+├── examples/api/               # Executable HTTP request examples
+├── scripts/                    # Portable verification and smoke helpers
+├── tests/
+│   ├── integration/            # Running-system API journeys
+│   └── load/                   # Disposable-environment contention tests
+├── .github/                    # Governance, issue forms, dependency automation, CI
+├── compose.yaml                # One-command local orchestration
+├── Makefile                    # Stable developer command interface
+├── .env.example                # Non-secret environment contract
+├── go.mod                      # Go dependency boundary
+├── package.json                # JavaScript workspace commands
+├── pnpm-workspace.yaml         # Frontend workspace membership
 └── README.md
 ```
 
-`apps/api` is the Go deployable; `cmd/server` is composition/bootstrap, `internal` contains feature and platform code, and `tests` cross-feature/API fixtures. `apps/web` is the Vite SPA: `app` providers/router, `pages` route composition, `features` use cases, `components` shared presentation, and `lib` infrastructure. Frontend filenames use kebab-case (`seat-map.tsx`); Go packages/directories use idiomatic compact lowercase (`trainrun`, not `train_run`).
+## Ownership rules
 
-`api-client` is generated from the normative OpenAPI file and must not be hand-edited. `shared-types` contains frontend-only stable types when generation cannot express a UI concept—not duplicate Go domain models. `config` holds shared lint/TypeScript/Tailwind configurations.
+`apps/api` is the Go deployable. Its `cmd` packages contain process entry points, `internal/app` is the composition root, feature packages own business capabilities, and `internal/platform` owns shared transport conventions. Go unit and package tests remain beside source.
 
-`database/migrations` contains ordered Goose SQL with up/down development paths and safe production guidance; `queries` is sqlc input; `seed` is clearly marked idempotent demo configuration. `docs` records requirements/design/operations/ADRs. `scripts` holds small portable developer/CI helpers. `.github/workflows` validates PR/main. Root Compose/Make/env files offer a consistent interface; `go.mod` can anchor a Go workspace initially, and pnpm manages web packages.
+`apps/web` is the browser deployable. API adapters, application state, hooks, shared components, layouts, route pages, feature sections, localization, and types have separate directories. Component tests remain beside frontend source.
 
-Generated files carry headers and CI checks regeneration. No secrets, local `.env`, build artifacts, node modules or test databases are committed. Implementation scaffolding will be added in Phase 1; this document is not application implementation.
+`database` owns durable schema and demonstration data. Existing shared migrations must not be edited after use outside disposable development databases; changes receive new ordered migrations.
+
+Root `tests` are reserved for behavior crossing package, process, or application boundaries. Root `scripts` contain small portable commands used by both developers and CI. Complex logic belongs in tested application code rather than shell scripts.
+
+`examples` must contain demonstration values only. `docs/runbooks` describe operational response, while architecture and ADR files explain design. No credentials, local `.env`, passenger data, build output, package caches, or test databases are committed.
+
+Shared `packages/`, deployment manifests, and infrastructure directories should be introduced only when real code or an actual target requires them; empty architecture placeholders are intentionally avoided.

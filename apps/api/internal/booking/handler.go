@@ -7,8 +7,11 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/lahiruudayakumara/rail-seat-booking/apps/api/internal/httpmiddleware"
+	"github.com/lahiruudayakumara/rail-seat-booking/apps/api/internal/passengerauth"
 	"github.com/lahiruudayakumara/rail-seat-booking/apps/api/internal/platform/apperror"
 	"github.com/lahiruudayakumara/rail-seat-booking/apps/api/internal/platform/httpx"
 )
@@ -22,10 +25,37 @@ func NewHandler(service *Service, logger *slog.Logger) *Handler {
 	return &Handler{service: service, logger: logger}
 }
 func (h *Handler) Routes(r chi.Router) {
-	r.Post("/bookings", h.create)
-	r.Get("/bookings/{bookingId}", h.get)
-	r.Get("/bookings/reference/{reference}", h.getByReference)
+	r.With(httpmiddleware.RateLimit(30, time.Minute)).Post("/bookings", h.create)
+	r.With(httpmiddleware.RateLimit(60, time.Minute)).Post("/booking-holds", h.createHold)
+	r.With(httpmiddleware.RateLimit(10, time.Minute)).Post("/bookings/access", h.access)
 	r.Post("/bookings/{bookingId}/cancel", h.cancel)
+	r.Get("/passenger/bookings", h.listMine)
+}
+func (h *Handler) listMine(w http.ResponseWriter, r *http.Request) {
+	account, ok := passengerauth.AccountFromContext(r.Context())
+	if !ok {
+		httpx.WriteError(w, r, h.logger, apperror.New(401, "PASSENGER_AUTH_REQUIRED", "Passenger sign-in is required.", nil))
+		return
+	}
+	items, err := h.service.ListForAccount(r.Context(), account.ID)
+	if err != nil {
+		httpx.WriteError(w, r, h.logger, err)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, map[string]any{"items": items})
+}
+func (h *Handler) createHold(w http.ResponseWriter, r *http.Request) {
+	var request HoldRequest
+	if err := httpx.DecodeJSON(w, r, &request); err != nil {
+		httpx.WriteError(w, r, h.logger, err)
+		return
+	}
+	hold, err := h.service.CreateHold(r.Context(), request, httpx.RequestID(r))
+	if err != nil {
+		httpx.WriteError(w, r, h.logger, err)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusCreated, hold)
 }
 func (h *Handler) create(w http.ResponseWriter, r *http.Request) {
 	payload, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 1<<20))
@@ -53,21 +83,15 @@ func (h *Handler) create(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Location", "/api/v1/bookings/"+item.ID.String())
 	httpx.WriteJSON(w, 201, item)
 }
-func (h *Handler) get(w http.ResponseWriter, r *http.Request) {
-	id, err := httpx.PathUUID(r, "bookingId")
-	if err != nil {
-		httpx.WriteError(w, r, h.logger, err)
+func (h *Handler) access(w http.ResponseWriter, r *http.Request) {
+	decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 16<<10))
+	decoder.DisallowUnknownFields()
+	var request AccessRequest
+	if err := decoder.Decode(&request); err != nil {
+		httpx.WriteError(w, r, h.logger, apperror.Validation("body", "Invalid JSON body."))
 		return
 	}
-	item, err := h.service.Get(r.Context(), id)
-	if err != nil {
-		httpx.WriteError(w, r, h.logger, err)
-		return
-	}
-	httpx.WriteJSON(w, 200, item)
-}
-func (h *Handler) getByReference(w http.ResponseWriter, r *http.Request) {
-	item, err := h.service.GetByReference(r.Context(), chi.URLParam(r, "reference"))
+	item, err := h.service.Access(r.Context(), request)
 	if err != nil {
 		httpx.WriteError(w, r, h.logger, err)
 		return
@@ -80,7 +104,19 @@ func (h *Handler) cancel(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, h.logger, err)
 		return
 	}
-	item, err := h.service.Cancel(r.Context(), id, httpx.RequestID(r))
+	token := strings.TrimSpace(strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer "))
+	var request CancelRequest
+	if r.ContentLength != 0 {
+		if err = httpx.DecodeJSON(w, r, &request); err != nil {
+			httpx.WriteError(w, r, h.logger, err)
+			return
+		}
+	}
+	if len(request.Reason) > 500 {
+		httpx.WriteError(w, r, h.logger, apperror.Validation("reason", "Reason must not exceed 500 characters."))
+		return
+	}
+	item, err := h.service.Cancel(r.Context(), id, token, request.Reason, httpx.RequestID(r))
 	if err != nil {
 		httpx.WriteError(w, r, h.logger, err)
 		return

@@ -2,6 +2,7 @@ import { useTranslation } from "react-i18next";
 import type { TabType } from "@/types";
 import { LanguageSelector } from "../../components";
 import { TrainFront } from "../../components/common/icons";
+import { usePassengerAuth } from "@/auth/use-passenger-auth";
 
 interface HeaderSectionProps {
   activeTab: TabType;
@@ -10,22 +11,25 @@ interface HeaderSectionProps {
 
 export function HeaderSection({ activeTab, setActiveTab }: HeaderSectionProps) {
   const { t } = useTranslation();
+  const { account } = usePassengerAuth();
 
   return (
     <header className="hero px-6 pb-24 pt-8 md:px-10">
-      <nav className="mx-auto flex max-w-6xl flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div
-          className="flex items-center gap-3 text-lg font-bold tracking-tight text-white cursor-pointer"
+      <nav className="mx-auto flex max-w-6xl flex-col gap-4 sm:flex-row sm:items-center sm:justify-between" aria-label="Primary navigation">
+        <button
+          type="button"
+          className="flex items-center gap-3 self-start text-left text-lg font-bold tracking-tight text-white cursor-pointer"
           onClick={() => setActiveTab("booking")}
+          aria-label={`${t("brand.title")} home`}
         >
           <span className="logo-mark">
             <TrainFront size={20} />
           </span>
           <span>{t("brand.title")}</span>
-        </div>
+        </button>
 
         {/* Navigation Bar Links */}
-        <div className="flex flex-wrap items-center gap-2 sm:gap-4">
+        <div className="flex w-full items-center gap-2 overflow-x-auto pb-1 sm:w-auto sm:gap-4 sm:overflow-visible sm:pb-0">
           <button
             type="button"
             onClick={() => setActiveTab("booking")}
@@ -56,6 +60,14 @@ export function HeaderSection({ activeTab, setActiveTab }: HeaderSectionProps) {
             className={`nav-tab ${activeTab === "help" ? "active" : ""}`}
           >
             {t("nav.help")}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab("account")}
+            className={`nav-tab ${activeTab === "account" ? "active" : ""}`}
+          >
+            {account ? "My account" : "Sign in"}
           </button>
 
           <LanguageSelector />

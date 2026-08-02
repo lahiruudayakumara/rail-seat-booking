@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 import type { TrainRun } from "@/types";
-import { EmptyState, LoadingSpinner, QrCode, SectionCard, TrainFront } from "@/components";
+import { Button, EmptyState, InlineError, LoadingSpinner, QrCode, RefreshCw, SectionCard, TrainFront } from "@/components";
 import { useJourneySearch } from "@/hooks/use-journey-search";
 import { useTrainSelection } from "@/hooks/use-train-selection";
 
@@ -27,9 +27,17 @@ export function TrainSelection() {
   const destinationCode = destination ? getStationCode(destination.name) : "DST";
 
   return (
+    <div id="train-results" className="scroll-mt-5">
     <SectionCard title={t("trains.title")} icon={<TrainFront size={22} />}>
       {trainRunsQuery.isLoading ? (
         <LoadingSpinner label={t("trains.loading")} />
+      ) : trainRunsQuery.isError ? (
+        <div className="grid justify-items-start gap-3">
+          <InlineError message={t("trains.loadError")} />
+          <Button variant="secondary" onClick={() => void trainRunsQuery.refetch()}>
+            <RefreshCw size={16} /> {t("common.tryAgain")}
+          </Button>
+        </div>
       ) : trainRunsQuery.data?.items.length ? (
         <div className="grid gap-5">
           {trainRunsQuery.data.items.map((run: TrainRun) => {
@@ -58,9 +66,14 @@ export function TrainSelection() {
 
             return (
               <button
+                type="button"
                 key={run.id}
                 className={`ticket-card ${isSelected ? "selected" : ""}`}
-                onClick={() => handleChooseRun(run.id)}
+                aria-pressed={isSelected}
+                onClick={() => {
+                  handleChooseRun(run.id);
+                  window.setTimeout(() => document.getElementById("seat-results")?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
+                }}
               >
                 {/* Solid Maroon Top Boarding Pass Banner */}
                 <div className="ticket-header">
@@ -188,5 +201,6 @@ export function TrainSelection() {
         <EmptyState message={t("trains.empty")} />
       )}
     </SectionCard>
+    </div>
   );
 }

@@ -5,6 +5,9 @@ import LookupPage from "@/pages/main/lookup";
 import NotFoundPage from "@/pages/not-found";
 import SchedulesPage from "@/pages/main/schedules";
 import Main from "@/layouts/main";
+import AdminPage from "@/pages/admin";
+import AccountPage from "@/pages/main/account";
+import PaymentReturnPage, { PaymentCancelPage } from "@/pages/main/payment-return";
 
 export const router = createBrowserRouter([
   {
@@ -27,7 +30,23 @@ export const router = createBrowserRouter([
         path: "help",
         Component: HelpPage,
       },
+      {
+        path: "account",
+        Component: AccountPage,
+      },
+      {
+        path: "payment/return",
+        Component: PaymentReturnPage,
+      },
+      {
+        path: "payment/cancel",
+        Component: PaymentCancelPage,
+      },
     ],
+  },
+  {
+    path: "/admin",
+    Component: AdminPage,
   },
   {
     path: "*",

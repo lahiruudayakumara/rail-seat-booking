@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next";
+import { useEffect, useState } from "react";
 import {
   ArrowRight,
   Button,
@@ -6,27 +7,47 @@ import {
   Field,
   InlineError,
   LoadingSpinner,
+  RefreshCw,
   SectionCard,
   Users,
 } from "@/components";
 import { useBookingFlow } from "@/hooks/use-booking-flow";
+import { usePassengerAuth } from "@/auth/use-passenger-auth";
+import { useNavigate } from "react-router-dom";
 import { useJourneySearch } from "@/hooks/use-journey-search";
 import { useSeatSelection } from "@/hooks/use-seat-selection";
 import { formatMoney } from "@/utils";
+import { paymentProvider } from "@/api";
 
 export function PassengerFare() {
   const { t } = useTranslation();
   const { origin, destination } = useJourneySearch();
-  const { selectedSeat, quote, quoteMutation } = useSeatSelection();
+  const { selectedSeat, quote, hold, quoteMutation } = useSeatSelection();
   const { form, bookingMutation, submitPassenger } = useBookingFlow();
+  const { account } = usePassengerAuth();
+  const navigate = useNavigate();
+
+  const [secondsLeft, setSecondsLeft] = useState(0);
+  useEffect(() => {
+    const update = () => setSecondsLeft(Math.max(0, Math.floor((new Date(hold?.expiresAt ?? 0).getTime() - Date.now()) / 1000)));
+    update();
+    const timer = window.setInterval(update, 1000);
+    return () => window.clearInterval(timer);
+  }, [hold?.expiresAt]);
 
   if (!selectedSeat) return null;
 
   const originName = origin ? t(`stations.${origin.name}`, origin.name) : "";
   const destinationName = destination ? t(`stations.${destination.name}`, destination.name) : "";
+  const holdExpired = Boolean(hold) && secondsLeft === 0;
+  const minutes = Math.floor(secondsLeft / 60);
+  const seconds = String(secondsLeft % 60).padStart(2, "0");
 
   return (
     <SectionCard title={t("passenger.title")} icon={<Users size={22} />}>
+      <div className={`mb-5 rounded-xl border p-4 text-sm ${account ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-stone-200 bg-stone-50 text-stone-600"}`}>
+        {account ? <><strong>Booking as {account.fullName}</strong><p className="mt-1 text-xs">This journey will be saved in your passenger account.</p></> : <div className="flex flex-wrap items-center justify-between gap-3"><div><strong className="text-stone-800">Continue as guest</strong><p className="mt-1 text-xs">Or sign in to save this booking and speed up checkout.</p></div><Button type="button" variant="secondary" onClick={() => navigate("/account")}>Sign in</Button></div>}
+      </div>
       <div className="grid gap-8 md:grid-cols-[1fr_320px]">
         <form className="grid gap-4" onSubmit={form.handleSubmit(submitPassenger)}>
           <Field label={t("passenger.fullName")} error={form.formState.errors.fullName?.message}>
@@ -51,12 +72,25 @@ export function PassengerFare() {
             </Field>
           </div>
 
+          {paymentProvider === "payhere" && (
+            <div className="grid gap-4 md:grid-cols-2">
+              <Field label="Billing address" error={form.formState.errors.billingAddress?.message}>
+                <input autoComplete="street-address" placeholder="No. 1, Main Street" {...form.register("billingAddress")} />
+              </Field>
+              <Field label="City" error={form.formState.errors.city?.message}>
+                <input autoComplete="address-level2" placeholder="Colombo" {...form.register("city")} />
+              </Field>
+            </div>
+          )}
+
+          <p className="text-xs leading-5 text-stone-500">{t("passenger.contactHint")}</p>
+
           <Button
             variant="primary"
             className="justify-center"
-            disabled={!quote || bookingMutation.isPending}
+            disabled={!quote || !hold || holdExpired || bookingMutation.isPending}
           >
-            {bookingMutation.isPending ? t("passenger.confirming") : t("passenger.confirmButton")}
+            {bookingMutation.isPending ? t("passenger.confirming") : quote ? paymentProvider === "payhere" ? `Continue to PayHere · ${formatMoney(quote)}` : t("passenger.payButton", { amount: formatMoney(quote) }) : t("passenger.confirmButton")}
             <Check size={16} />
           </Button>
         </form>
@@ -79,6 +113,11 @@ export function PassengerFare() {
 
           {quoteMutation.isPending ? (
             <LoadingSpinner label={t("passenger.calculating")} />
+          ) : quoteMutation.isError ? (
+            <div className="grid gap-3">
+              <InlineError message={t("passenger.quoteError")} />
+              <Button variant="secondary" onClick={() => quoteMutation.mutate(selectedSeat.id)}><RefreshCw size={15} /> {t("common.tryAgain")}</Button>
+            </div>
           ) : quote ? (
             <>
               <div className="fare-total">
@@ -88,12 +127,20 @@ export function PassengerFare() {
               <p className="mt-3 text-xs text-white/70">
                 {t("passenger.distanceTimer", {
                   distance: quote.distanceKm,
-                  expires: new Date(quote.expiresAt).toLocaleTimeString([], {
+                  expires: new Date(hold?.expiresAt ?? quote.expiresAt).toLocaleTimeString([], {
                     hour: "2-digit",
                     minute: "2-digit",
                   }),
                 })}
               </p>
+              <p className={`mt-2 font-mono text-xs font-bold ${holdExpired ? "text-amber-300" : "text-white"}`} aria-live="polite">
+                {holdExpired ? t("passenger.holdExpired") : t("passenger.holdCountdown", { minutes, seconds })}
+              </p>
+              {holdExpired && (
+                <Button className="mt-3 w-full" variant="secondary" onClick={() => quoteMutation.mutate(selectedSeat.id)}>
+                  <RefreshCw size={15} /> {t("passenger.renewHold")}
+                </Button>
+              )}
             </>
           ) : (
             <InlineError message={t("passenger.quoteError")} />

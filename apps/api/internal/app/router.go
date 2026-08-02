@@ -9,6 +9,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/lahiruudayakumara/rail-seat-booking/apps/api/internal/admin"
 	"github.com/lahiruudayakumara/rail-seat-booking/apps/api/internal/apidocs"
 	"github.com/lahiruudayakumara/rail-seat-booking/apps/api/internal/availability"
 	"github.com/lahiruudayakumara/rail-seat-booking/apps/api/internal/booking"
@@ -17,6 +18,8 @@ import (
 	"github.com/lahiruudayakumara/rail-seat-booking/apps/api/internal/health"
 	"github.com/lahiruudayakumara/rail-seat-booking/apps/api/internal/httpmiddleware"
 	"github.com/lahiruudayakumara/rail-seat-booking/apps/api/internal/journey"
+	"github.com/lahiruudayakumara/rail-seat-booking/apps/api/internal/passengerauth"
+	"github.com/lahiruudayakumara/rail-seat-booking/apps/api/internal/payment"
 	"github.com/lahiruudayakumara/rail-seat-booking/apps/api/internal/route"
 	"github.com/lahiruudayakumara/rail-seat-booking/apps/api/internal/station"
 	"github.com/lahiruudayakumara/rail-seat-booking/apps/api/internal/trainrun"
@@ -29,9 +32,16 @@ func NewRouter(pool *pgxpool.Pool, logger *slog.Logger, cfg config.Config) http.
 	trainRunHandler := trainrun.NewHandler(trainrun.NewService(trainrun.NewRepository(pool)), logger)
 	availabilityHandler := availability.NewHandler(availability.NewService(availability.NewRepository(pool), journeyService), logger)
 	fareHandler := fare.NewHandler(fare.NewService(fare.NewRepository(pool), journeyService, 5*time.Minute), logger)
-	bookingHandler := booking.NewHandler(booking.NewService(pool, booking.NewRepository()), logger)
+	accessSigner := booking.NewAccessSigner(cfg.ManagementSecret, cfg.ManagementTTL)
+	bookingRepository := booking.NewRepository()
+	paymentProvider := payment.SandboxProvider{}
+	payHereProvider := payment.NewPayHereProvider(payment.PayHereConfig{MerchantID: cfg.PayHereMerchantID, Secret: cfg.PayHereSecret, Sandbox: cfg.PayHereSandbox, ReturnURL: cfg.PayHereReturnURL, CancelURL: cfg.PayHereCancelURL, NotifyURL: cfg.PayHereNotifyURL})
+	bookingHandler := booking.NewHandler(booking.NewService(pool, bookingRepository, accessSigner, payment.NewCancellationProcessor(paymentProvider), cfg.SeatHoldTTL), logger)
+	paymentHandler := payment.NewHandler(payment.NewService(pool, payment.NewRepository(), bookingRepository, accessSigner, payment.NewTicketSigner(cfg.ManagementSecret), paymentProvider, payHereProvider, cfg.PaymentPendingTTL), logger)
 	healthHandler := health.NewHandler(pool, logger, cfg.DatabaseTimeout)
 	docsHandler := apidocs.NewHandler(cfg.OpenAPIPath, logger)
+	adminHandler := admin.NewHandler(admin.NewService(admin.NewRepository(pool)), logger, cfg.AdminAPIKey)
+	passengerAuthHandler := passengerauth.NewHandler(passengerauth.NewService(passengerauth.NewRepository(pool), cfg.PassengerSessionTTL), logger, cfg.Environment == "production")
 
 	router := chi.NewRouter()
 	router.Use(chimiddleware.RequestID, chimiddleware.RealIP, chimiddleware.Recoverer)
@@ -41,12 +51,16 @@ func NewRouter(pool *pgxpool.Pool, logger *slog.Logger, cfg config.Config) http.
 	router.Get("/openapi.yaml", docsHandler.OpenAPI)
 	router.Get("/docs", docsHandler.Docs)
 	router.Route("/api/v1", func(r chi.Router) {
+		r.Use(passengerAuthHandler.OptionalSession)
+		passengerAuthHandler.Routes(r)
 		routeHandler.Routes(r)
 		stationHandler.Routes(r)
 		trainRunHandler.Routes(r)
 		availabilityHandler.Routes(r)
 		fareHandler.Routes(r)
 		bookingHandler.Routes(r)
+		paymentHandler.Routes(r)
+		adminHandler.Routes(r)
 	})
 	return router
 }

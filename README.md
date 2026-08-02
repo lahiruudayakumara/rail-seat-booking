@@ -9,13 +9,17 @@ Whole-journey allocation wastes capacity. This system assigns every route statio
 ## Main features
 
 - Configurable routes, ordered stations, distances, trains, runs, coaches, layouts, seats, and fares
-- Segment-aware availability, fare quotes, booking lookup, cancellation, references, and audit events
-- Idempotent booking creation and database-safe concurrency
+- Segment-aware availability, expiring seat holds, fare quotes, verified booking lookup, cancellation, references, and audit events
+- Optional passenger registration/login with account-owned booking history while retaining fast guest checkout
+- Idempotent booking, built-in local payments, and PayHere Sandbox checkout with verified, replay-safe webhooks
+- Ticket credentials and privacy-preserving ticket verification
+- Transactional full refunds, ticket cancellation, and retrying notification outbox delivery
+- Protected, responsive administrator frontend for train-run utilization, revenue, refunds, booking health, and delivery status
 - Responsive, accessible booking flow and an OpenAPI 3.1 contract
 - Interactive coach-by-coach seat map with conflict recovery
 - UTC persistence with `Asia/Colombo` schedule presentation
 
-The initial scope uses direct confirmation without payment. `HELD` and `CONFIRMED` block inventory; `CANCELLED`, `EXPIRED`, and `COMPLETED` do not.
+`HELD` and `CONFIRMED` block inventory; `CANCELLED`, `EXPIRED`, and `COMPLETED` do not. A booking is confirmed only after the configured payment provider succeeds; local development uses an explicit sandbox provider.
 
 ## Technology
 
@@ -30,7 +34,7 @@ flowchart LR
   A -->|"pgx / parameterized SQL"| P[("PostgreSQL")]
 ```
 
-The API validates and orchestrates; PostgreSQL owns durable integrity. Optional reverse proxy, Redis, queue, notifications, object storage and monitoring are future production components—not initial dependencies. See [system architecture](docs/system-architecture.md), [database design](docs/database-design.md), and [ADRs](docs/adr/).
+The API validates and orchestrates; PostgreSQL owns durable integrity and a transactional outbox records delivery work. External payment and notification providers remain replaceable boundaries. See [system architecture](docs/system-architecture.md), [database design](docs/database-design.md), and [ADRs](docs/adr/).
 
 ## Local setup
 
@@ -47,13 +51,21 @@ Expected services:
 
 | Service | URL |
 |---|---|
+| Passenger web application | http://localhost:3000 |
+| Administrator dashboard | http://localhost:3000/admin |
 | API | http://localhost:8080 |
 | OpenAPI/Swagger | http://localhost:8080/docs |
 | PostgreSQL | Internal Compose service `db:5432` |
 
 Docker Compose waits for PostgreSQL, applies Goose migrations, loads idempotent demonstration data, starts the API, and finally starts the web application. Full instructions are in [local development](docs/local-development.md).
 
-Environment values are documented in `.env.example` using safe local placeholders only. Secrets must never be committed. Useful commands are `make seed`, `make test`, `make logs`, `make down`, and `make reset`.
+Environment values are documented in `.env.example` using safe local placeholders only. Secrets must never be committed. Useful commands are `make verify`, `make smoke`, `make integration`, `make seed`, `make logs`, `make down`, and `make reset`.
+
+The built-in payment simulator remains the zero-configuration default. To test the real PayHere-hosted Sandbox checkout, follow [the PayHere Sandbox guide](docs/payhere-sandbox.md); it requires a sandbox merchant account and a public HTTPS webhook URL.
+
+For local administrator testing, open `/admin` and use the `ADMIN_API_KEY` value from `.env`. The browser retains this credential only in `sessionStorage`; signing out or closing the browser session removes it. Production must replace the local placeholder with a strong credential supplied through the deployment secret manager.
+
+Passenger accounts are optional. Guests can complete the same reservation flow with a name and email or phone, then manage the booking through reference verification. Registered passengers use `/account`; authenticated checkout stores the journey in private booking history. Passenger sessions use revocable random server-side tokens delivered only through HTTP-only SameSite cookies, and passwords are bcrypt-hashed.
 
 ## API and behavior
 
@@ -68,16 +80,17 @@ Availability is advisory. Booking insertion occurs in a transaction; if concurre
 ```text
 apps/api/                 Go API
 apps/web/                 React application
-packages/                 generated client, shared types, shared config
 database/                 Goose migrations, sqlc queries, demo seed
 docs/                     product and engineering documentation
 scripts/                  developer/CI helpers
+tests/                    cross-service integration and load tests
+examples/api/             runnable HTTP request examples
 .github/workflows/        validation and optional release workflows
 ```
 
 The API is split by business capability, with handler, service, repository, and model boundaries where useful. Shared configuration, HTTP conventions, middleware, and database interfaces live in dedicated infrastructure packages. See [backend architecture](docs/backend-architecture.md) for the exact package tree and dependency rules.
 
-See [project structure](docs/project-structure.md) and [implementation plan](docs/implementation-plan.md).
+Operational procedures are in [runbooks](docs/runbooks/), while cross-service test prerequisites are documented in [tests](tests/README.md). See [project structure](docs/project-structure.md) and [implementation plan](docs/implementation-plan.md).
 
 ## Design decisions and alternatives
 
@@ -97,9 +110,9 @@ The hardest part is not displaying availability but committing it correctly afte
 
 Secure defaults include parameterized SQL, strict validation, least-privilege DB roles, TLS in production, limited CORS, rate limits, redacted structured logs, protected booking references and append-only audits. See [security](docs/security.md), [observability](docs/observability.md), [testing](docs/testing-strategy.md), [CI/CD](docs/ci-cd.md), and [deployment](docs/deployment.md).
 
-## Limitations and future work
+## Limitations and production integrations
 
-Initial scope excludes payment capture, authentication implementation, waitlists, notifications, real-time push, multi-seat/group atomic booking, live railway feeds, refunds and production cloud deployment. The implemented extra-credit feature is a responsive seat-map visualization with explicit 409 conflict recovery that refreshes seats while preserving passenger form data. Candidate future extras include holds, admin/revenue analytics, waitlists, WebSocket/SSE updates, multilingual UX and verified official schedules/fares.
+The repository ships a zero-configuration payment/refund simulator plus PayHere Sandbox checkout and verified callback handling. PayHere Refund API credentials and production mode are intentionally not enabled yet. Launch still requires production payment onboarding, email/SMS providers, department identity/role integration, HTTPS ingress, monitoring destinations, backups, verified official schedules/fares, and the corresponding credentials. Those external services are intentionally not impersonated or hardcoded.
 
 ## License
 
