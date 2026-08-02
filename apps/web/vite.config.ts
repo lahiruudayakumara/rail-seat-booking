@@ -18,5 +18,21 @@ export default defineConfig({
       usePolling: true,
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          "react-vendor": ["react", "react-dom", "react-router-dom"],
+          "state-vendor": ["@reduxjs/toolkit", "react-redux", "@tanstack/react-query"],
+          "forms-vendor": ["@hookform/resolvers", "react-hook-form", "zod"],
+          "i18n-vendor": [
+            "i18next",
+            "i18next-browser-languagedetector",
+            "react-i18next",
+          ],
+        },
+      },
+    },
+  },
   test: { environment: "jsdom", globals: true, setupFiles: "./src/test-setup.ts" },
 });
