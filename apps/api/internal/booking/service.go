@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/lahiruudayakumara/rail-seat-booking/apps/api/internal/passengerauth"
 	"github.com/lahiruudayakumara/rail-seat-booking/apps/api/internal/platform/apperror"
 )
 
@@ -65,7 +66,8 @@ func (s *Service) Create(ctx context.Context, request CreateRequest, idempotency
 	request.Passenger.FullName = strings.TrimSpace(request.Passenger.FullName)
 	request.Passenger.Email = strings.TrimSpace(request.Passenger.Email)
 	request.Passenger.Phone = strings.TrimSpace(request.Passenger.Phone)
-	if request.Passenger.FullName == "" || (request.Passenger.Email == "" && request.Passenger.Phone == "") {
+	accountID := passengerauth.AccountID(ctx)
+	if accountID == nil && (request.Passenger.FullName == "" || (request.Passenger.Email == "" && request.Passenger.Phone == "")) {
 		return Booking{}, false, apperror.Validation("passenger", "Name and email or phone are required.")
 	}
 	keySum := sha256.Sum256([]byte(idempotencyKey))
@@ -116,7 +118,7 @@ func (s *Service) Create(ctx context.Context, request CreateRequest, idempotency
 		return Booking{}, false, apperror.Validation("holdId", "Seat hold does not match the booking.")
 	}
 	passengerID, bookingID := uuid.New(), request.HoldID
-	if err = s.repo.InsertPassenger(ctx, tx, passengerID, request.Passenger); err != nil {
+	if err = s.repo.InsertPassenger(ctx, tx, passengerID, accountID, request.Passenger); err != nil {
 		return Booking{}, false, apperror.Wrap(err)
 	}
 	if err = s.repo.PrepareHeldBooking(ctx, tx, bookingID, passengerID, bookingReference(bookingID)); err != nil {
@@ -147,6 +149,13 @@ func (s *Service) Get(ctx context.Context, id uuid.UUID) (Booking, error) {
 	}
 	return item, nil
 }
+func (s *Service) ListForAccount(ctx context.Context, accountID uuid.UUID) ([]Booking, error) {
+	items, err := s.repo.ListByAccount(ctx, s.pool, accountID)
+	if err != nil {
+		return nil, apperror.Wrap(err)
+	}
+	return items, nil
+}
 func (s *Service) Access(ctx context.Context, request AccessRequest) (Booking, error) {
 	reference := strings.ToUpper(strings.TrimSpace(request.Reference))
 	contact := strings.TrimSpace(request.Contact)
@@ -168,7 +177,17 @@ func (s *Service) Access(ctx context.Context, request AccessRequest) (Booking, e
 }
 func (s *Service) Cancel(ctx context.Context, id uuid.UUID, token, reason, requestID string) (Booking, error) {
 	if err := s.access.Verify(token, id); err != nil {
-		return Booking{}, apperror.New(401, "BOOKING_ACCESS_DENIED", "Booking access verification is required.", nil)
+		accountID := passengerauth.AccountID(ctx)
+		if accountID == nil {
+			return Booking{}, apperror.New(401, "BOOKING_ACCESS_DENIED", "Booking access verification is required.", nil)
+		}
+		belongs, ownershipErr := s.repo.BelongsToAccount(ctx, s.pool, id, *accountID)
+		if ownershipErr != nil {
+			return Booking{}, apperror.Wrap(ownershipErr)
+		}
+		if !belongs {
+			return Booking{}, apperror.New(404, "BOOKING_NOT_FOUND", "Booking was not found.", nil)
+		}
 	}
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {

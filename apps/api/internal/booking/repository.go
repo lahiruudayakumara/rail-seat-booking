@@ -34,7 +34,11 @@ func (r *Repository) Quote(ctx context.Context, db database.DBTX, id uuid.UUID) 
 	err := db.QueryRow(ctx, `SELECT train_run_id,seat_id,origin_station_id,destination_station_id,fare_rule_id,origin_position,destination_position,amount_minor,currency,currency_scale,breakdown FROM fare_quotes WHERE id=$1 AND expires_at>now()`, id).Scan(&q.TrainRunID, &q.SeatID, &q.OriginStationID, &q.DestinationStationID, &q.FareRuleID, &q.OriginPosition, &q.DestinationPosition, &q.AmountMinor, &q.Currency, &q.CurrencyScale, &q.Breakdown)
 	return q, err
 }
-func (r *Repository) InsertPassenger(ctx context.Context, db database.DBTX, id uuid.UUID, input PassengerInput) error {
+func (r *Repository) InsertPassenger(ctx context.Context, db database.DBTX, id uuid.UUID, accountID *uuid.UUID, input PassengerInput) error {
+	if accountID != nil {
+		_, err := db.Exec(ctx, `INSERT INTO passengers(id,account_id,full_name,email_normalized,phone_e164) SELECT $1,id,full_name,email_normalized,phone_e164 FROM passenger_accounts WHERE id=$2`, id, *accountID)
+		return err
+	}
 	_, err := db.Exec(ctx, `INSERT INTO passengers(id,full_name,email_normalized,phone_e164) VALUES($1,$2,NULLIF(lower($3),''),NULLIF($4,''))`, id, input.FullName, input.Email, input.Phone)
 	return err
 }
@@ -78,6 +82,31 @@ func (r *Repository) Load(ctx context.Context, db database.DBTX, id uuid.UUID) (
 		err = json.Unmarshal(attributes, &b.Seat.Attributes)
 	}
 	return b, err
+}
+func (r *Repository) ListByAccount(ctx context.Context, db database.DBTX, accountID uuid.UUID) ([]Booking, error) {
+	rows, err := db.Query(ctx, `SELECT b.id,b.reference,b.status,b.train_run_id,s.id,s.label,c.id,c.code,c.coach_class,s.attributes,b.origin_station_id,b.destination_station_id,b.fare_total_minor,b.fare_currency,b.fare_currency_scale,b.created_at,b.confirmed_at,b.cancelled_at FROM bookings b JOIN passengers p ON p.id=b.passenger_id JOIN seats s ON s.id=b.seat_id JOIN coaches c ON c.id=s.coach_id WHERE p.account_id=$1 ORDER BY b.created_at DESC`, accountID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := make([]Booking, 0)
+	for rows.Next() {
+		var item Booking
+		var attributes []byte
+		if err = rows.Scan(&item.ID, &item.Reference, &item.Status, &item.TrainRunID, &item.Seat.ID, &item.Seat.Label, &item.Seat.CoachID, &item.Seat.CoachCode, &item.Seat.CoachClass, &attributes, &item.OriginStationID, &item.DestinationStationID, &item.Fare.AmountMinor, &item.Fare.Currency, &item.Fare.CurrencyScale, &item.CreatedAt, &item.ConfirmedAt, &item.CancelledAt); err != nil {
+			return nil, err
+		}
+		if err = json.Unmarshal(attributes, &item.Seat.Attributes); err != nil {
+			return nil, err
+		}
+		items = append(items, item)
+	}
+	return items, rows.Err()
+}
+func (r *Repository) BelongsToAccount(ctx context.Context, db database.DBTX, bookingID, accountID uuid.UUID) (bool, error) {
+	var belongs bool
+	err := db.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM bookings b JOIN passengers p ON p.id=b.passenger_id WHERE b.id=$1 AND p.account_id=$2)`, bookingID, accountID).Scan(&belongs)
+	return belongs, err
 }
 func (r *Repository) FindIDByReferenceAndContact(ctx context.Context, db database.DBTX, reference, contact string) (uuid.UUID, error) {
 	var id uuid.UUID

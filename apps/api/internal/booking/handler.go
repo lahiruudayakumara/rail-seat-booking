@@ -11,6 +11,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/lahiruudayakumara/rail-seat-booking/apps/api/internal/httpmiddleware"
+	"github.com/lahiruudayakumara/rail-seat-booking/apps/api/internal/passengerauth"
 	"github.com/lahiruudayakumara/rail-seat-booking/apps/api/internal/platform/apperror"
 	"github.com/lahiruudayakumara/rail-seat-booking/apps/api/internal/platform/httpx"
 )
@@ -28,6 +29,20 @@ func (h *Handler) Routes(r chi.Router) {
 	r.With(httpmiddleware.RateLimit(60, time.Minute)).Post("/booking-holds", h.createHold)
 	r.With(httpmiddleware.RateLimit(10, time.Minute)).Post("/bookings/access", h.access)
 	r.Post("/bookings/{bookingId}/cancel", h.cancel)
+	r.Get("/passenger/bookings", h.listMine)
+}
+func (h *Handler) listMine(w http.ResponseWriter, r *http.Request) {
+	account, ok := passengerauth.AccountFromContext(r.Context())
+	if !ok {
+		httpx.WriteError(w, r, h.logger, apperror.New(401, "PASSENGER_AUTH_REQUIRED", "Passenger sign-in is required.", nil))
+		return
+	}
+	items, err := h.service.ListForAccount(r.Context(), account.ID)
+	if err != nil {
+		httpx.WriteError(w, r, h.logger, err)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, map[string]any{"items": items})
 }
 func (h *Handler) createHold(w http.ResponseWriter, r *http.Request) {
 	var request HoldRequest
