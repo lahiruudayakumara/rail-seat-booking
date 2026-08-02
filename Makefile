@@ -1,4 +1,4 @@
-=.PHONY: up seed down reset logs migrate-up migrate-down test test-go test-web build fmt
+.PHONY: up seed down reset logs migrate-up migrate-down migration-status test test-go test-web build fmt verify smoke integration load
 
 up:
 	docker compose up --build
@@ -22,6 +22,9 @@ migrate-up:
 migrate-down:
 	docker compose run --rm --entrypoint /usr/local/bin/migrate api down
 
+migration-status:
+	./scripts/check-migrations.sh
+
 test: test-go test-web
 
 test-go:
@@ -36,3 +39,15 @@ build:
 
 fmt:
 	gofmt -w apps/api
+
+verify:
+	./scripts/verify.sh
+
+smoke:
+	./scripts/smoke-test.sh
+
+integration:
+	./tests/integration/booking-flow.sh
+
+load:
+	k6 run tests/load/booking-contention.js
