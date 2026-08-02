@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"errors"
+	"net/mail"
 	"regexp"
 	"strings"
 	"time"
@@ -19,6 +20,10 @@ import (
 )
 
 var phonePattern = regexp.MustCompile(`^\+[1-9]\d{7,14}$`)
+var dummyPasswordHash = func() []byte {
+	hash, _ := bcrypt.GenerateFromPassword([]byte("InvalidPassengerPassword1"), bcrypt.DefaultCost)
+	return hash
+}()
 
 type Service struct {
 	repo       *Repository
@@ -36,7 +41,8 @@ func (s *Service) Register(ctx context.Context, request RegisterRequest) (Accoun
 	if len(request.FullName) < 2 || len(request.FullName) > 120 {
 		return Account{}, Session{}, apperror.Validation("fullName", "Full name must contain 2 to 120 characters.")
 	}
-	if !strings.Contains(request.Email, "@") || len(request.Email) > 254 {
+	address, emailErr := mail.ParseAddress(request.Email)
+	if emailErr != nil || address.Address != request.Email || len(request.Email) > 254 {
 		return Account{}, Session{}, apperror.Validation("email", "Enter a valid email address.")
 	}
 	if request.Phone != "" && !phonePattern.MatchString(request.Phone) {
@@ -64,7 +70,11 @@ func (s *Service) Register(ctx context.Context, request RegisterRequest) (Accoun
 func (s *Service) Login(ctx context.Context, request LoginRequest) (Account, Session, error) {
 	email := strings.ToLower(strings.TrimSpace(request.Email))
 	account, hash, err := s.repo.FindByEmail(ctx, email)
-	if errors.Is(err, pgx.ErrNoRows) || (err == nil && bcrypt.CompareHashAndPassword([]byte(hash), []byte(request.Password)) != nil) {
+	if errors.Is(err, pgx.ErrNoRows) {
+		_ = bcrypt.CompareHashAndPassword(dummyPasswordHash, []byte(request.Password))
+		return Account{}, Session{}, apperror.New(401, "INVALID_CREDENTIALS", "Email or password is incorrect.", nil)
+	}
+	if err == nil && bcrypt.CompareHashAndPassword([]byte(hash), []byte(request.Password)) != nil {
 		return Account{}, Session{}, apperror.New(401, "INVALID_CREDENTIALS", "Email or password is incorrect.", nil)
 	}
 	if err != nil {
