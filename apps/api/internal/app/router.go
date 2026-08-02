@@ -18,6 +18,7 @@ import (
 	"github.com/lahiruudayakumara/rail-seat-booking/apps/api/internal/health"
 	"github.com/lahiruudayakumara/rail-seat-booking/apps/api/internal/httpmiddleware"
 	"github.com/lahiruudayakumara/rail-seat-booking/apps/api/internal/journey"
+	"github.com/lahiruudayakumara/rail-seat-booking/apps/api/internal/passengerauth"
 	"github.com/lahiruudayakumara/rail-seat-booking/apps/api/internal/payment"
 	"github.com/lahiruudayakumara/rail-seat-booking/apps/api/internal/route"
 	"github.com/lahiruudayakumara/rail-seat-booking/apps/api/internal/station"
@@ -39,6 +40,7 @@ func NewRouter(pool *pgxpool.Pool, logger *slog.Logger, cfg config.Config) http.
 	healthHandler := health.NewHandler(pool, logger, cfg.DatabaseTimeout)
 	docsHandler := apidocs.NewHandler(cfg.OpenAPIPath, logger)
 	adminHandler := admin.NewHandler(admin.NewService(admin.NewRepository(pool)), logger, cfg.AdminAPIKey)
+	passengerAuthHandler := passengerauth.NewHandler(passengerauth.NewService(passengerauth.NewRepository(pool), cfg.PassengerSessionTTL), logger, cfg.Environment == "production")
 
 	router := chi.NewRouter()
 	router.Use(chimiddleware.RequestID, chimiddleware.RealIP, chimiddleware.Recoverer)
@@ -48,6 +50,8 @@ func NewRouter(pool *pgxpool.Pool, logger *slog.Logger, cfg config.Config) http.
 	router.Get("/openapi.yaml", docsHandler.OpenAPI)
 	router.Get("/docs", docsHandler.Docs)
 	router.Route("/api/v1", func(r chi.Router) {
+		r.Use(passengerAuthHandler.OptionalSession)
+		passengerAuthHandler.Routes(r)
 		routeHandler.Routes(r)
 		stationHandler.Routes(r)
 		trainRunHandler.Routes(r)

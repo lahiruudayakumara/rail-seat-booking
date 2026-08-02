@@ -50,6 +50,7 @@ services:
       ADMIN_API_KEY: ${ADMIN_API_KEY:-local-development-admin-key-change-me}
       SEAT_HOLD_TTL: ${SEAT_HOLD_TTL:-10m}
       OUTBOX_POLL_INTERVAL: ${OUTBOX_POLL_INTERVAL:-2s}
+      PASSENGER_SESSION_TTL: ${PASSENGER_SESSION_TTL:-168h}
     ports:
       - "${API_PORT:-8080}:8080"
     depends_on:
