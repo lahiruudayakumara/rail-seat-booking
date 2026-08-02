@@ -47,7 +47,6 @@ Expected services:
 
 | Service | URL |
 |---|---|
-| Frontend | http://localhost:3000 |
 | API | http://localhost:8080 |
 | OpenAPI/Swagger | http://localhost:8080/docs |
 | PostgreSQL | Internal Compose service `db:5432` |

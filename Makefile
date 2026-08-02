@@ -1,4 +1,4 @@
-.PHONY: up seed down reset logs migrate-up migrate-down test test-go test-web build fmt
+=.PHONY: up seed down reset logs migrate-up migrate-down test test-go test-web build fmt
 
 up:
 	docker compose up --build
