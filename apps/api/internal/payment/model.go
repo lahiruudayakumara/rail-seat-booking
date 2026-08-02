@@ -34,6 +34,24 @@ type CheckoutResult struct {
 	Booking booking.Booking `json:"booking"`
 }
 
+type VerifyTicketRequest struct {
+	VerificationCode string `json:"verificationCode"`
+}
+
+type TicketVerification struct {
+	Valid                bool      `json:"valid"`
+	TicketID             uuid.UUID `json:"ticketId"`
+	TicketStatus         string    `json:"ticketStatus"`
+	BookingReference     string    `json:"bookingReference"`
+	BookingStatus        string    `json:"bookingStatus"`
+	TrainRunID           uuid.UUID `json:"trainRunId"`
+	CoachCode            string    `json:"coachCode"`
+	SeatLabel            string    `json:"seatLabel"`
+	OriginStationID      uuid.UUID `json:"originStationId"`
+	DestinationStationID uuid.UUID `json:"destinationStationId"`
+	VerifiedAt           time.Time `json:"verifiedAt"`
+}
+
 type checkoutRecord struct {
 	BookingID uuid.UUID
 	Payment   Payment

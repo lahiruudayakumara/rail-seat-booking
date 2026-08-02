@@ -65,7 +65,8 @@
     "referenceLabel": "BOOKING REFERENCE",
     "cancelButton": "Cancel booking",
     "cancelling": "Cancelling…",
-    "ticketCode": "Ticket verification code"
+    "ticketCode": "Ticket verification code",
+    "refunded": "Refund completed: {{amount}}"
   },
   "lookup": {
     "title": "Lookup Booking Reference",

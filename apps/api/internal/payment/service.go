@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -21,6 +22,24 @@ type Service struct {
 	access   *booking.AccessSigner
 	tickets  *TicketSigner
 	provider Provider
+}
+
+func (s *Service) VerifyTicket(ctx context.Context, request VerifyTicketRequest) (TicketVerification, error) {
+	code := strings.TrimSpace(request.VerificationCode)
+	if len(code) < 32 || len(code) > 128 {
+		return TicketVerification{}, apperror.Validation("verificationCode", "A valid ticket verification code is required.")
+	}
+	digest := sha256.Sum256([]byte(code))
+	item, err := s.repo.VerifyTicket(ctx, s.pool, hex.EncodeToString(digest[:]))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return TicketVerification{}, apperror.New(404, "TICKET_NOT_FOUND", "Ticket was not found.", nil)
+	}
+	if err != nil {
+		return TicketVerification{}, apperror.Wrap(err)
+	}
+	item.Valid = item.TicketStatus == "ACTIVE" && item.BookingStatus == "CONFIRMED"
+	item.VerifiedAt = time.Now()
+	return item, nil
 }
 
 func NewService(pool *pgxpool.Pool, repo *Repository, bookings *booking.Repository, access *booking.AccessSigner, tickets *TicketSigner, provider Provider) *Service {

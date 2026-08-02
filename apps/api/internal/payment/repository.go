@@ -32,6 +32,21 @@ func (r *Repository) FindCheckout(ctx context.Context, db database.DBTX, keyHash
 	return item, err
 }
 
+func (r *Repository) VerifyTicket(ctx context.Context, db database.DBTX, codeHash string) (TicketVerification, error) {
+	var item TicketVerification
+	err := db.QueryRow(ctx, `SELECT t.id,t.status,b.reference,b.status,b.train_run_id,c.code,s.label,b.origin_station_id,b.destination_station_id
+		FROM tickets t
+		JOIN bookings b ON b.id=t.booking_id
+		JOIN seats s ON s.id=b.seat_id
+		JOIN coaches c ON c.id=s.coach_id
+		WHERE t.verification_code_hash=$1`, codeHash).Scan(
+		&item.TicketID, &item.TicketStatus, &item.BookingReference, &item.BookingStatus,
+		&item.TrainRunID, &item.CoachCode, &item.SeatLabel,
+		&item.OriginStationID, &item.DestinationStationID,
+	)
+	return item, err
+}
+
 func (r *Repository) LockPayable(ctx context.Context, db database.DBTX, bookingID uuid.UUID) (payableBooking, error) {
 	var item payableBooking
 	err := db.QueryRow(ctx, `SELECT fare_total_minor,fare_currency,status,hold_expires_at FROM bookings WHERE id=$1 AND passenger_id IS NOT NULL FOR UPDATE`, bookingID).Scan(&item.AmountMinor, &item.Currency, &item.Status, &item.ExpiresAt)

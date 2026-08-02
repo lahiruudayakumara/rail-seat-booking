@@ -176,6 +176,17 @@ paths:
         '404': {$ref: '#/components/responses/NotFound'}
         '409': {$ref: '#/components/responses/Conflict'}
         '422': {$ref: '#/components/responses/Unprocessable'}
+  /api/v1/tickets/verify:
+    post:
+      tags: [Bookings]
+      operationId: verifyTicket
+      description: Verifies a ticket credential without exposing passenger personal data.
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/VerifyTicketRequest'}}}}
+      responses:
+        '200': {description: Ticket verification result, content: {application/json: {schema: {$ref: '#/components/schemas/TicketVerification'}}}}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '422': {$ref: '#/components/responses/Unprocessable'}
+        '429': {$ref: '#/components/responses/TooManyRequests'}
   /api/v1/bookings/{bookingId}/cancel:
     post:
       security: [{bearerAuth: []}]
@@ -343,6 +354,26 @@ components:
         payment: {type: object, additionalProperties: true}
         ticket: {type: object, required: [id, verificationCode, status], properties: {id: {type: string, format: uuid}, verificationCode: {type: string}, status: {type: string, enum: [ACTIVE, CANCELLED, USED]}}}
         booking: {$ref: '#/components/schemas/Booking'}
+    VerifyTicketRequest:
+      type: object
+      additionalProperties: false
+      required: [verificationCode]
+      properties: {verificationCode: {type: string, minLength: 32, maxLength: 128}}
+    TicketVerification:
+      type: object
+      required: [valid, ticketId, ticketStatus, bookingReference, bookingStatus, trainRunId, coachCode, seatLabel, originStationId, destinationStationId, verifiedAt]
+      properties:
+        valid: {type: boolean}
+        ticketId: {type: string, format: uuid}
+        ticketStatus: {type: string, enum: [ACTIVE, CANCELLED, USED]}
+        bookingReference: {type: string}
+        bookingStatus: {type: string}
+        trainRunId: {type: string, format: uuid}
+        coachCode: {type: string}
+        seatLabel: {type: string}
+        originStationId: {type: string, format: uuid}
+        destinationStationId: {type: string, format: uuid}
+        verifiedAt: {type: string, format: date-time}
     Booking:
       type: object
       required: [id, reference, status, trainRunId, seat, originStationId, destinationStationId, fare, createdAt]
@@ -359,6 +390,15 @@ components:
         confirmedAt: {type: [string, 'null'], format: date-time}
         cancelledAt: {type: [string, 'null'], format: date-time}
         managementToken: {type: string, description: Short-lived opaque token for managing this booking}
+        refund: {$ref: '#/components/schemas/RefundSummary'}
+    RefundSummary:
+      type: object
+      required: [id, status, amountMinor, currency]
+      properties:
+        id: {type: string, format: uuid}
+        status: {type: string, enum: [PENDING, SUCCEEDED, FAILED]}
+        amountMinor: {type: integer, format: int64}
+        currency: {type: string, pattern: '^[A-Z]{3}$'}
     CancelBookingRequest:
       type: object
       additionalProperties: false

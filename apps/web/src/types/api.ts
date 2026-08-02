@@ -82,6 +82,7 @@ export type Booking = {
   confirmedAt?: string;
   cancelledAt?: string;
   managementToken?: string;
+  refund?: { id: string; status: string; amountMinor: number; currency: string };
 };
 
 export type CreateBookingRequest = {

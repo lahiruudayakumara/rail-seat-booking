@@ -37,6 +37,18 @@ export function BookingConfirmation() {
         <span className="status-pill">{formatMoney(booking.fare)}</span>
       </div>
 
+      {booking.refund && (
+        <p className="mt-4 text-sm font-semibold text-emerald-700">
+          {t("confirmation.refunded", {
+            amount: formatMoney({
+              amountMinor: booking.refund.amountMinor,
+              currency: booking.refund.currency,
+              currencyScale: booking.fare.currencyScale,
+            }),
+          })}
+        </p>
+      )}
+
       {booking.status === "CONFIRMED" && (
         <div className="mt-6">
           <Button

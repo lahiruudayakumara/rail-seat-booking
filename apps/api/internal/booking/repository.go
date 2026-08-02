@@ -84,10 +84,11 @@ func (r *Repository) FindIDByReferenceAndContact(ctx context.Context, db databas
 	err := db.QueryRow(ctx, `SELECT b.id FROM bookings b JOIN passengers p ON p.id=b.passenger_id WHERE b.reference=$1 AND (p.email_normalized=lower($2) OR p.phone_e164=$2)`, reference, contact).Scan(&id)
 	return id, err
 }
-func (r *Repository) LockStatus(ctx context.Context, db database.DBTX, id uuid.UUID) (string, error) {
+func (r *Repository) LockStatus(ctx context.Context, db database.DBTX, id uuid.UUID) (string, time.Time, error) {
 	var status string
-	err := db.QueryRow(ctx, `SELECT status FROM bookings WHERE id=$1 FOR UPDATE`, id).Scan(&status)
-	return status, err
+	var departureAt time.Time
+	err := db.QueryRow(ctx, `SELECT b.status,tr.departure_at FROM bookings b JOIN train_runs tr ON tr.id=b.train_run_id WHERE b.id=$1 FOR UPDATE OF b`, id).Scan(&status, &departureAt)
+	return status, departureAt, err
 }
 func (r *Repository) Cancel(ctx context.Context, db database.DBTX, id uuid.UUID) error {
 	_, err := db.Exec(ctx, `UPDATE bookings SET status='CANCELLED',cancelled_at=now(),updated_at=now() WHERE id=$1`, id)

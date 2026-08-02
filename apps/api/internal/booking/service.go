@@ -16,14 +16,15 @@ import (
 )
 
 type Service struct {
-	pool    *pgxpool.Pool
-	repo    *Repository
-	access  *AccessSigner
-	holdTTL time.Duration
+	pool         *pgxpool.Pool
+	repo         *Repository
+	access       *AccessSigner
+	holdTTL      time.Duration
+	cancellation CancellationProcessor
 }
 
-func NewService(pool *pgxpool.Pool, repo *Repository, access *AccessSigner, holdTTL time.Duration) *Service {
-	return &Service{pool: pool, repo: repo, access: access, holdTTL: holdTTL}
+func NewService(pool *pgxpool.Pool, repo *Repository, access *AccessSigner, cancellation CancellationProcessor, holdTTL time.Duration) *Service {
+	return &Service{pool: pool, repo: repo, access: access, cancellation: cancellation, holdTTL: holdTTL}
 }
 
 func (s *Service) CreateHold(ctx context.Context, request HoldRequest, requestID string) (Hold, error) {
@@ -165,7 +166,7 @@ func (s *Service) Access(ctx context.Context, request AccessRequest) (Booking, e
 	}
 	return item, err
 }
-func (s *Service) Cancel(ctx context.Context, id uuid.UUID, token, requestID string) (Booking, error) {
+func (s *Service) Cancel(ctx context.Context, id uuid.UUID, token, reason, requestID string) (Booking, error) {
 	if err := s.access.Verify(token, id); err != nil {
 		return Booking{}, apperror.New(401, "BOOKING_ACCESS_DENIED", "Booking access verification is required.", nil)
 	}
@@ -174,7 +175,7 @@ func (s *Service) Cancel(ctx context.Context, id uuid.UUID, token, requestID str
 		return Booking{}, apperror.Wrap(err)
 	}
 	defer tx.Rollback(ctx)
-	status, err := s.repo.LockStatus(ctx, tx, id)
+	status, departureAt, err := s.repo.LockStatus(ctx, tx, id)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Booking{}, apperror.New(404, "BOOKING_NOT_FOUND", "Booking was not found.", nil)
 	}
@@ -184,13 +185,29 @@ func (s *Service) Cancel(ctx context.Context, id uuid.UUID, token, requestID str
 	if status == "COMPLETED" || status == "EXPIRED" {
 		return Booking{}, apperror.New(422, "BOOKING_CANNOT_BE_CANCELLED", "This booking can no longer be cancelled.", nil)
 	}
+	if status != "CANCELLED" && !time.Now().Before(departureAt) {
+		return Booking{}, apperror.New(422, "DEPARTURE_PASSED", "Bookings cannot be cancelled after departure.", nil)
+	}
 	if status != "CANCELLED" {
+		var refund *RefundSummary
+		if s.cancellation != nil {
+			refund, err = s.cancellation.Process(ctx, tx, id, strings.TrimSpace(reason), requestID)
+			if err != nil {
+				return Booking{}, err
+			}
+		}
 		if err = s.repo.Cancel(ctx, tx, id); err != nil {
 			return Booking{}, apperror.Wrap(err)
 		}
 		if err = s.repo.InsertAudit(ctx, tx, uuid.New(), id, "BOOKING_CANCELLED", requestID); err != nil {
 			return Booking{}, apperror.Wrap(err)
 		}
+		if err = tx.Commit(ctx); err != nil {
+			return Booking{}, apperror.Wrap(err)
+		}
+		item, loadErr := s.Get(ctx, id)
+		item.Refund = refund
+		return item, loadErr
 	}
 	if err = tx.Commit(ctx); err != nil {
 		return Booking{}, apperror.Wrap(err)

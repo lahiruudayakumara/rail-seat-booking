@@ -90,7 +90,18 @@ func (h *Handler) cancel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	token := strings.TrimSpace(strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer "))
-	item, err := h.service.Cancel(r.Context(), id, token, httpx.RequestID(r))
+	var request CancelRequest
+	if r.ContentLength != 0 {
+		if err = httpx.DecodeJSON(w, r, &request); err != nil {
+			httpx.WriteError(w, r, h.logger, err)
+			return
+		}
+	}
+	if len(request.Reason) > 500 {
+		httpx.WriteError(w, r, h.logger, apperror.Validation("reason", "Reason must not exceed 500 characters."))
+		return
+	}
+	item, err := h.service.Cancel(r.Context(), id, token, request.Reason, httpx.RequestID(r))
 	if err != nil {
 		httpx.WriteError(w, r, h.logger, err)
 		return
