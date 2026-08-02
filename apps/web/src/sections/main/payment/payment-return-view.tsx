@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { clearStoredPayHereAccess, getPayHerePayment, getStoredPayHereAccess } from "@/api";
@@ -8,6 +8,7 @@ import { setBooking, setTicket } from "@/store/slices/booking-slice";
 import { useAppDispatch, useAppSelector } from "@/store";
 
 export function PaymentReturnView({ cancelled = false }: { cancelled?: boolean }) {
+  const [confirmationDelayed, setConfirmationDelayed] = useState(false);
   const [params] = useSearchParams();
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
@@ -29,6 +30,15 @@ export function PaymentReturnView({ cancelled = false }: { cancelled?: boolean }
     clearStoredPayHereAccess(paymentId);
   }, [dispatch, paymentId, paymentQuery.data]);
 
+  useEffect(() => {
+    if (paymentQuery.data?.status !== "PENDING") {
+      setConfirmationDelayed(false);
+      return;
+    }
+    const timer = window.setTimeout(() => setConfirmationDelayed(true), 30_000);
+    return () => window.clearTimeout(timer);
+  }, [paymentQuery.data?.status]);
+
   if (confirmedBooking && paymentQuery.data?.status === "PAID") return <BookingConfirmation />;
 
   if (!paymentId || !access) {
@@ -46,6 +56,10 @@ export function PaymentReturnView({ cancelled = false }: { cancelled?: boolean }
 
   if (paymentQuery.data?.status === "DISPUTED") {
     return <PaymentState title="Payment requires review" body="Do not pay again. Keep your booking reference and contact support so the payment can be reconciled or refunded." action={() => navigate("/lookup")} actionLabel="View booking lookup" />;
+  }
+
+  if (confirmationDelayed) {
+    return <PaymentState title="Payment confirmation is delayed" body="Do not pay again. PayHere returned you to the booking site, but its verified server notification has not arrived yet. Check again shortly or use your booking reference for support." action={() => { setConfirmationDelayed(false); void paymentQuery.refetch(); }} actionLabel="Check notification again" />;
   }
 
   return (
