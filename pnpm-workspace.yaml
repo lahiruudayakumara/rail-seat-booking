@@ -1,0 +1,9 @@
+packages:
+  - apps/web
+  - packages/*
+allowBuilds:
+  esbuild: true
+confirmModulesPurge: false
+enableGlobalVirtualStore: false
+storeDir: .pnpm-store
+packageImportMethod: copy

@@ -1,11 +1,38 @@
-import { defineConfig } from 'vite'
-import react, { reactCompilerPreset } from '@vitejs/plugin-react'
-import babel from '@rolldown/plugin-babel'
+import { fileURLToPath } from "node:url";
+import tailwindcss from "@tailwindcss/vite";
+import react from "@vitejs/plugin-react";
+import { defineConfig } from "vitest/config";
 
-// https://vite.dev/config/
 export default defineConfig({
-  plugins: [
-    react(),
-    babel({ presets: [reactCompilerPreset()] })
-  ],
-})
+  root: fileURLToPath(new URL(".", import.meta.url)),
+  plugins: [react(), tailwindcss()],
+  resolve: {
+    alias: {
+      "@": fileURLToPath(new URL("./src", import.meta.url)),
+    },
+  },
+  server: {
+    host: "0.0.0.0",
+    port: 3000,
+    watch: {
+      usePolling: true,
+    },
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          "react-vendor": ["react", "react-dom", "react-router-dom"],
+          "state-vendor": ["@reduxjs/toolkit", "react-redux", "@tanstack/react-query"],
+          "forms-vendor": ["@hookform/resolvers", "react-hook-form", "zod"],
+          "i18n-vendor": [
+            "i18next",
+            "i18next-browser-languagedetector",
+            "react-i18next",
+          ],
+        },
+      },
+    },
+  },
+  test: { environment: "jsdom", globals: true, setupFiles: "./src/test-setup.ts" },
+});
