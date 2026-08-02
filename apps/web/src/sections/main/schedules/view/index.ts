@@ -1,0 +1,1 @@
+export { default as SchedulesView } from "@/sections/main/schedules/view/schedules-page";
