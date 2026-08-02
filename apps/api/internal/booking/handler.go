@@ -7,8 +7,10 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/lahiruudayakumara/rail-seat-booking/apps/api/internal/httpmiddleware"
 	"github.com/lahiruudayakumara/rail-seat-booking/apps/api/internal/platform/apperror"
 	"github.com/lahiruudayakumara/rail-seat-booking/apps/api/internal/platform/httpx"
 )
@@ -22,8 +24,8 @@ func NewHandler(service *Service, logger *slog.Logger) *Handler {
 	return &Handler{service: service, logger: logger}
 }
 func (h *Handler) Routes(r chi.Router) {
-	r.Post("/bookings", h.create)
-	r.Post("/bookings/access", h.access)
+	r.With(httpmiddleware.RateLimit(30, time.Minute)).Post("/bookings", h.create)
+	r.With(httpmiddleware.RateLimit(10, time.Minute)).Post("/bookings/access", h.access)
 	r.Post("/bookings/{bookingId}/cancel", h.cancel)
 }
 func (h *Handler) create(w http.ResponseWriter, r *http.Request) {
