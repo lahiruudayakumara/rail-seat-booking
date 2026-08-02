@@ -2,7 +2,7 @@
 
 Each phase ends with a demonstrable acceptance gate; core correctness precedes optional features.
 
-Implementation status: the database and backend core slice is working. Frontend completion and final clean-machine, E2E, security, and submission verification remain active.
+Implementation status: Phases 1–5 have a working core slice. Phase 6 remains active, especially full Compose execution on a Docker-capable clean machine, expanded E2E/security tests and final submission verification.
 
 ## 1. Foundation
 
