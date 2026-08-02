@@ -5,6 +5,7 @@ import LookupPage from "@/pages/main/lookup";
 import NotFoundPage from "@/pages/not-found";
 import SchedulesPage from "@/pages/main/schedules";
 import Main from "@/layouts/main";
+import AdminPage from "@/pages/admin";
 
 export const router = createBrowserRouter([
   {
@@ -28,6 +29,10 @@ export const router = createBrowserRouter([
         Component: HelpPage,
       },
     ],
+  },
+  {
+    path: "/admin",
+    Component: AdminPage,
   },
   {
     path: "*",

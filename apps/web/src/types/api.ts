@@ -106,3 +106,18 @@ export type ApiError = {
   details?: unknown;
   requestId?: string;
 };
+
+export type AdminDashboard = {
+  trainRunId: string;
+  sellableSeatSegments: number;
+  occupiedSeatSegments: number;
+  segmentUtilizationPercent: number;
+  confirmedBookings: number;
+  cancelledBookings: number;
+  heldBookings: number;
+  grossRevenueMinor: number;
+  refundedMinor: number;
+  netRevenueMinor: number;
+  currency: string;
+  pendingDeliveries: number;
+};

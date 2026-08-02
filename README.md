@@ -13,7 +13,7 @@ Whole-journey allocation wastes capacity. This system assigns every route statio
 - Idempotent booking and sandbox payment flows with database-safe concurrency
 - Ticket credentials and privacy-preserving ticket verification
 - Transactional full refunds, ticket cancellation, and retrying notification outbox delivery
-- Protected train-run dashboards for segment utilization, revenue, refunds, and delivery health
+- Protected, responsive administrator frontend for train-run utilization, revenue, refunds, booking health, and delivery status
 - Responsive, accessible booking flow and an OpenAPI 3.1 contract
 - Interactive coach-by-coach seat map with conflict recovery
 - UTC persistence with `Asia/Colombo` schedule presentation
@@ -50,6 +50,8 @@ Expected services:
 
 | Service | URL |
 |---|---|
+| Passenger web application | http://localhost:3000 |
+| Administrator dashboard | http://localhost:3000/admin |
 | API | http://localhost:8080 |
 | OpenAPI/Swagger | http://localhost:8080/docs |
 | PostgreSQL | Internal Compose service `db:5432` |
@@ -57,6 +59,8 @@ Expected services:
 Docker Compose waits for PostgreSQL, applies Goose migrations, loads idempotent demonstration data, starts the API, and finally starts the web application. Full instructions are in [local development](docs/local-development.md).
 
 Environment values are documented in `.env.example` using safe local placeholders only. Secrets must never be committed. Useful commands are `make verify`, `make smoke`, `make integration`, `make seed`, `make logs`, `make down`, and `make reset`.
+
+For local administrator testing, open `/admin` and use the `ADMIN_API_KEY` value from `.env`. The browser retains this credential only in `sessionStorage`; signing out or closing the browser session removes it. Production must replace the local placeholder with a strong credential supplied through the deployment secret manager.
 
 ## API and behavior
 
