@@ -8,6 +8,7 @@ function pathToTab(pathname: string): TabType {
     if (pathname.startsWith("/lookup")) return "lookup";
     if (pathname.startsWith("/schedules")) return "schedules";
     if (pathname.startsWith("/help")) return "help";
+    if (pathname.startsWith("/account")) return "account";
     return "booking";
 }
 
@@ -21,6 +22,8 @@ function tabToPath(tab: TabType): string {
             return "/schedules";
         case "help":
             return "/help";
+        case "account":
+            return "/account";
         default:
             return "/";
     }

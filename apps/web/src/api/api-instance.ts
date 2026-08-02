@@ -11,7 +11,7 @@ const API = axios.create({
   headers: {
     "Content-Type": "application/json",
   },
-  withCredentials: false,
+  withCredentials: true,
 });
 
 export { API as api };

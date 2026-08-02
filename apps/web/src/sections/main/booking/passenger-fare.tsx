@@ -12,6 +12,8 @@ import {
   Users,
 } from "@/components";
 import { useBookingFlow } from "@/hooks/use-booking-flow";
+import { usePassengerAuth } from "@/auth/use-passenger-auth";
+import { useNavigate } from "react-router-dom";
 import { useJourneySearch } from "@/hooks/use-journey-search";
 import { useSeatSelection } from "@/hooks/use-seat-selection";
 import { formatMoney } from "@/utils";
@@ -21,6 +23,8 @@ export function PassengerFare() {
   const { origin, destination } = useJourneySearch();
   const { selectedSeat, quote, hold, quoteMutation } = useSeatSelection();
   const { form, bookingMutation, submitPassenger } = useBookingFlow();
+  const { account } = usePassengerAuth();
+  const navigate = useNavigate();
 
   const [secondsLeft, setSecondsLeft] = useState(0);
   useEffect(() => {
@@ -40,6 +44,9 @@ export function PassengerFare() {
 
   return (
     <SectionCard title={t("passenger.title")} icon={<Users size={22} />}>
+      <div className={`mb-5 rounded-xl border p-4 text-sm ${account ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-stone-200 bg-stone-50 text-stone-600"}`}>
+        {account ? <><strong>Booking as {account.fullName}</strong><p className="mt-1 text-xs">This journey will be saved in your passenger account.</p></> : <div className="flex flex-wrap items-center justify-between gap-3"><div><strong className="text-stone-800">Continue as guest</strong><p className="mt-1 text-xs">Or sign in to save this booking and speed up checkout.</p></div><Button type="button" variant="secondary" onClick={() => navigate("/account")}>Sign in</Button></div>}
+      </div>
       <div className="grid gap-8 md:grid-cols-[1fr_320px]">
         <form className="grid gap-4" onSubmit={form.handleSubmit(submitPassenger)}>
           <Field label={t("passenger.fullName")} error={form.formState.errors.fullName?.message}>

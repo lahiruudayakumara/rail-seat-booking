@@ -4,11 +4,13 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Provider as ReduxProvider } from "react-redux";
 import { MemoryRouter } from "react-router-dom";
 import { vi } from "vitest";
-import { getBookingByReference } from "@/api";
+import { getBookingByReference, registerPassenger } from "@/api";
 import { AppRouter } from "@/routes/router";
 import LookupView from "@/sections/main/lookup/view/lookup-view";
 import { AdminDashboardView } from "@/sections/admin/dashboard-view";
 import { store } from "@/store";
+import { PassengerAuthProvider } from "@/auth/passenger-auth-context";
+import { AccountView } from "@/sections/main/account/account-view";
 
 vi.mock("@/api", () => ({
   getRoutes: vi.fn().mockResolvedValue({
@@ -56,6 +58,17 @@ vi.mock("@/api", () => ({
     managementToken: "test-management-token",
   }),
   getAdminDashboard: vi.fn(),
+  getCurrentPassenger: vi.fn().mockResolvedValue(null),
+  loginPassenger: vi.fn(),
+  registerPassenger: vi.fn().mockResolvedValue({
+    id: "account-1",
+    fullName: "Anura Perera",
+    email: "anura@example.com",
+    phone: "+94770000000",
+    createdAt: "2026-08-03T00:00:00Z",
+  }),
+  logoutPassenger: vi.fn(),
+  getPassengerBookings: vi.fn().mockResolvedValue([]),
 }));
 
 test("renders the journey search page", async () => {
@@ -96,7 +109,9 @@ test("looks up a booking through the backend API", async () => {
   render(
     <ReduxProvider store={store}>
       <QueryClientProvider client={queryClient}>
-        <LookupView />
+        <PassengerAuthProvider>
+          <LookupView />
+        </PassengerAuthProvider>
       </QueryClientProvider>
     </ReduxProvider>,
   );
@@ -110,4 +125,34 @@ test("looks up a booking through the backend API", async () => {
 
   expect(getBookingByReference).toHaveBeenCalledWith("BK-TEST1234", "passenger@example.com");
   expect(await screen.findByText("BK-TEST1234")).toBeInTheDocument();
+});
+
+test("creates an optional passenger account", async () => {
+  const user = userEvent.setup();
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  render(
+    <MemoryRouter>
+      <QueryClientProvider client={queryClient}>
+        <PassengerAuthProvider>
+          <AccountView />
+        </PassengerAuthProvider>
+      </QueryClientProvider>
+    </MemoryRouter>,
+  );
+
+  await user.click(await screen.findByRole("tab", { name: "Create account" }));
+  await user.type(screen.getByLabelText("Full name"), "Anura Perera");
+  await user.type(screen.getByLabelText("Email address"), "anura@example.com");
+  await user.type(screen.getByLabelText(/Phone/), "+94770000000");
+  await user.type(screen.getByLabelText("Password"), "ScenicRail2026");
+  await user.type(screen.getByLabelText("Confirm password"), "ScenicRail2026");
+  await user.click(screen.getByRole("button", { name: "Create passenger account" }));
+
+  expect(registerPassenger).toHaveBeenCalledWith({
+    fullName: "Anura Perera",
+    email: "anura@example.com",
+    phone: "+94770000000",
+    password: "ScenicRail2026",
+  });
+  expect(await screen.findByText(/Welcome, Anura Perera/)).toBeInTheDocument();
 });

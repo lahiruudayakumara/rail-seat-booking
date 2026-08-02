@@ -107,6 +107,21 @@ export type ApiError = {
   requestId?: string;
 };
 
+export type PassengerAccount = {
+  id: string;
+  fullName: string;
+  email: string;
+  phone?: string;
+  createdAt: string;
+};
+
+export type RegisterPassengerRequest = {
+  fullName: string;
+  email: string;
+  phone: string;
+  password: string;
+};
+
 export type AdminDashboard = {
   trainRunId: string;
   sellableSeatSegments: number;

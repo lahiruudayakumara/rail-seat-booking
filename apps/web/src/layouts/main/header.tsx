@@ -2,6 +2,7 @@ import { useTranslation } from "react-i18next";
 import type { TabType } from "@/types";
 import { LanguageSelector } from "../../components";
 import { TrainFront } from "../../components/common/icons";
+import { usePassengerAuth } from "@/auth/use-passenger-auth";
 
 interface HeaderSectionProps {
   activeTab: TabType;
@@ -10,6 +11,7 @@ interface HeaderSectionProps {
 
 export function HeaderSection({ activeTab, setActiveTab }: HeaderSectionProps) {
   const { t } = useTranslation();
+  const { account } = usePassengerAuth();
 
   return (
     <header className="hero px-6 pb-24 pt-8 md:px-10">
@@ -58,6 +60,14 @@ export function HeaderSection({ activeTab, setActiveTab }: HeaderSectionProps) {
             className={`nav-tab ${activeTab === "help" ? "active" : ""}`}
           >
             {t("nav.help")}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab("account")}
+            className={`nav-tab ${activeTab === "account" ? "active" : ""}`}
+          >
+            {account ? "My account" : "Sign in"}
           </button>
 
           <LanguageSelector />

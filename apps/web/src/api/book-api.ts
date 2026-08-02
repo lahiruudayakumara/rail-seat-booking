@@ -53,9 +53,9 @@ export const bookApi = {
     return res.data;
   },
 
-  cancelBooking: async (bookingId: string, managementToken: string) => {
+  cancelBooking: async (bookingId: string, managementToken?: string) => {
     const res = await api.post<Booking>(`/api/v1/bookings/${bookingId}/cancel`, {}, {
-      headers: { Authorization: `Bearer ${managementToken}` },
+      headers: managementToken ? { Authorization: `Bearer ${managementToken}` } : undefined,
     });
     return res.data;
   },
@@ -98,7 +98,7 @@ export function checkoutSandbox(bookingId: string, bookingToken: string) {
   return bookApi.checkoutSandbox(bookingId, bookingToken);
 }
 
-export function cancelBooking(bookingId: string, managementToken: string) {
+export function cancelBooking(bookingId: string, managementToken?: string) {
   return bookApi.cancelBooking(bookingId, managementToken);
 }
 

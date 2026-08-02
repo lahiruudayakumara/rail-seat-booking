@@ -4,6 +4,7 @@ import { HelmetProvider } from "react-helmet-pro";
 import { Provider as ReduxProvider } from "react-redux";
 import { router } from "@/routes/path";
 import { store } from "@/store";
+import { PassengerAuthProvider } from "@/auth/passenger-auth-context";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -19,9 +20,11 @@ export function AppRouter() {
   return (
     <ReduxProvider store={store}>
       <QueryClientProvider client={queryClient}>
-        <HelmetProvider>
-          <RouterProvider router={router} />
-        </HelmetProvider>
+        <PassengerAuthProvider>
+          <HelmetProvider>
+            <RouterProvider router={router} />
+          </HelmetProvider>
+        </PassengerAuthProvider>
       </QueryClientProvider>
     </ReduxProvider>
   );

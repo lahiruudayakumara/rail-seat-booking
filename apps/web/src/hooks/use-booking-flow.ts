@@ -2,6 +2,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation } from "@tanstack/react-query";
 import axios from "axios";
 import { useForm } from "react-hook-form";
+import { useEffect } from "react";
 import { z } from "zod";
 import type { ApiError } from "@/types";
 import { cancelBooking, checkoutSandbox, createBooking } from "../api";
@@ -18,6 +19,7 @@ import { setSearched } from "../store/slices/search-slice";
 import { setNotice } from "../store/slices/ui-slice";
 import { useJourneySearch } from "./use-journey-search";
 import { useSeatSelection } from "./use-seat-selection";
+import { usePassengerAuth } from "@/auth/use-passenger-auth";
 
 const passengerSchema = z.object({
   fullName: z.string().trim().min(2, "Full name is required"),
@@ -36,11 +38,19 @@ export function useBookingFlow() {
   const { notice } = useAppSelector((state) => state.ui);
   const { runId, seatsQuery } = useSeatSelection();
   const { originId, destinationId } = useJourneySearch();
+  const { account } = usePassengerAuth();
 
   const form = useForm<PassengerFormValues>({
     resolver: zodResolver(passengerSchema),
     defaultValues: { fullName: "", email: "", phone: "" },
   });
+
+  useEffect(() => {
+    if (!account) return;
+    form.setValue("fullName", account.fullName);
+    form.setValue("email", account.email);
+    form.setValue("phone", account.phone ?? "");
+  }, [account, form]);
 
   const bookingMutation = useMutation({
     mutationFn: (values: PassengerFormValues) => {

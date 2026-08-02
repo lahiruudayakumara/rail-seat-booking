@@ -6,6 +6,7 @@ import NotFoundPage from "@/pages/not-found";
 import SchedulesPage from "@/pages/main/schedules";
 import Main from "@/layouts/main";
 import AdminPage from "@/pages/admin";
+import AccountPage from "@/pages/main/account";
 
 export const router = createBrowserRouter([
   {
@@ -27,6 +28,10 @@ export const router = createBrowserRouter([
       {
         path: "help",
         Component: HelpPage,
+      },
+      {
+        path: "account",
+        Component: AccountPage,
       },
     ],
   },
