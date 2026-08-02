@@ -1,0 +1,113 @@
+{
+  "brand": {
+    "title": "Lanka Rail Reserve",
+    "demo": "DEMONSTRATION SERVICE",
+    "subwayLine": "COLOMBO FORT · KANDY · ELLA · BADULLA",
+    "heroHeadline": "Your seat, for exactly as far as you travel.",
+    "heroSub": "Reserve hill-country railway journeys by segment. When you step off at your stop, the same seat carries someone onward."
+  },
+  "nav": {
+    "booking": "Book Tickets",
+    "lookup": "Lookup Booking",
+    "schedules": "Timetable & Stations",
+    "help": "Help & FAQ"
+  },
+  "search": {
+    "kicker": "PLAN YOUR JOURNEY",
+    "title": "Where are you travelling?",
+    "originLabel": "Origin Station",
+    "originPlaceholder": "Select station",
+    "destinationLabel": "Destination Station",
+    "destinationPlaceholder": "Select station",
+    "dateLabel": "Travel Date",
+    "submitButton": "Find trains",
+    "validationError": "Choose a destination that comes after the origin on this route.",
+    "loadError": "Stations could not be loaded. Is the API running?"
+  },
+  "trains": {
+    "title": "Choose a train",
+    "kicker": "SCHEDULED SERVICE",
+    "loading": "Finding scheduled trains",
+    "empty": "No scheduled trains were found for this date."
+  },
+  "seats": {
+    "title": "Choose an available seat",
+    "sub": "Only reserved seats available for {{origin}} → {{destination}} are shown.",
+    "coach": "Coach {{code}}",
+    "classAvailable": "{{coachClass}} class · {{count}} available",
+    "loading": "Checking segment availability",
+    "empty": "No seats remain for this segment. Try another train or date.",
+    "window": "Window",
+    "aisle": "Aisle"
+  },
+  "passenger": {
+    "title": "Passenger and fare",
+    "fullName": "Full name",
+    "fullNamePlaceholder": "e.g. Anura Perera",
+    "email": "Email",
+    "phone": "Phone",
+    "confirmButton": "Confirm booking",
+    "confirming": "Confirming safely…",
+    "fareKicker": "FARE SUMMARY",
+    "coachSeat": "Coach / seat",
+    "total": "Total",
+    "distanceTimer": "{{distance}} km · fare held until {{expires}}",
+    "calculating": "Calculating fare",
+    "quoteError": "Fare could not be calculated."
+  },
+  "confirmation": {
+    "kicker": "BOOKING {{status}}",
+    "title": "Your journey is reserved.",
+    "sub": "Keep this reference safe",
+    "referenceLabel": "BOOKING REFERENCE",
+    "cancelButton": "Cancel booking",
+    "cancelling": "Cancelling…"
+  },
+  "lookup": {
+    "title": "Lookup Booking Reference",
+    "sub": "Enter your unique booking reference to view ticket status or manage your reservation.",
+    "inputLabel": "Booking Reference",
+    "placeholder": "e.g. REF-100001",
+    "button": "Search Booking",
+    "notFound": "No active booking found with that reference code."
+  },
+  "schedules": {
+    "title": "Hill Country Railway Stations & Distance Map",
+    "sub": "Colombo Fort to Badulla Main Line station order, cumulative distances, and codes.",
+    "stationHeader": "Station Name",
+    "codeHeader": "Code",
+    "distanceHeader": "Distance from Colombo",
+    "positionHeader": "Stop #"
+  },
+  "help": {
+    "title": "Frequently Asked Questions",
+    "q1": "How does segment booking work?",
+    "a1": "Segment booking allows passengers to reserve a specific seat only for the portion of the route they travel. When a passenger gets off at Kandy, that exact seat immediately opens up for another traveller heading to Ella.",
+    "q2": "How long is my fare quote held?",
+    "a2": "Fare quotes are locked for 5 minutes once calculated to guarantee your seat price while completing passenger details.",
+    "q3": "Can I cancel my booking?",
+    "a3": "Yes, active bookings can be cancelled at any time using your booking reference code."
+  },
+  "footer": {
+    "desc": "Official Sri Lanka Hill Country Railway Segment Seat Reservation Portal.",
+    "copyright": "© 2026 Lanka Rail Reserve. All rights reserved."
+  },
+  "stations": {
+    "Colombo Fort": "Colombo Fort",
+    "Ragama": "Ragama",
+    "Gampaha": "Gampaha",
+    "Peradeniya Junction": "Peradeniya Junction",
+    "Peradeniya": "Peradeniya",
+    "Kandy": "Kandy",
+    "Nanu Oya": "Nanu Oya",
+    "Ella": "Ella",
+    "Badulla": "Badulla",
+    "Hatton": "Hatton",
+    "Haputale": "Haputale"
+  },
+  "languages": {
+    "en": "English",
+    "si": "සිංහල",
+    "ta": "தமிழ்"
+  }
+}
