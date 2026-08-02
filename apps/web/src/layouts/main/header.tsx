@@ -13,19 +13,21 @@ export function HeaderSection({ activeTab, setActiveTab }: HeaderSectionProps) {
 
   return (
     <header className="hero px-6 pb-24 pt-8 md:px-10">
-      <nav className="mx-auto flex max-w-6xl flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div
-          className="flex items-center gap-3 text-lg font-bold tracking-tight text-white cursor-pointer"
+      <nav className="mx-auto flex max-w-6xl flex-col gap-4 sm:flex-row sm:items-center sm:justify-between" aria-label="Primary navigation">
+        <button
+          type="button"
+          className="flex items-center gap-3 self-start text-left text-lg font-bold tracking-tight text-white"
           onClick={() => setActiveTab("booking")}
+          aria-label={`${t("brand.title")} home`}
         >
           <span className="logo-mark">
             <TrainFront size={20} />
           </span>
           <span>{t("brand.title")}</span>
-        </div>
+        </button>
 
         {/* Navigation Bar Links */}
-        <div className="flex flex-wrap items-center gap-2 sm:gap-4">
+        <div className="flex w-full items-center gap-2 overflow-x-auto pb-1 sm:w-auto sm:gap-4 sm:overflow-visible sm:pb-0">
           <button
             type="button"
             onClick={() => setActiveTab("booking")}
@@ -63,6 +65,9 @@ export function HeaderSection({ activeTab, setActiveTab }: HeaderSectionProps) {
       </nav>
 
       <div className="mx-auto mt-14 max-w-6xl text-white">
+        <span className="inline-flex rounded-full border border-amber-200/30 bg-amber-100/10 px-3 py-1 font-mono text-[10px] font-bold tracking-widest text-amber-200">
+          {t("brand.demo")}
+        </span>
         <p className="font-mono text-xs font-bold tracking-widest text-amber-200 uppercase">
           {t("brand.subwayLine")}
         </p>

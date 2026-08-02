@@ -1,4 +1,5 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMemo } from "react";
 import type { Seat } from "@/types";
 import { createHold, getQuote, getSeatMap } from "../api";
 import { useAppDispatch, useAppSelector } from "../store";
@@ -31,13 +32,13 @@ export function useSeatSelection() {
     },
   });
 
-  const groupedSeats = Object.entries(
+  const groupedSeats = useMemo(() => Object.entries(
     (seatsQuery.data?.items ?? []).reduce<Record<string, Seat[]>>((acc, seat: Seat) => {
       acc[seat.coachCode] = acc[seat.coachCode] ?? [];
       acc[seat.coachCode].push(seat);
       return acc;
     }, {}),
-  );
+  ), [seatsQuery.data?.items]);
 
   const handleChooseSeat = (seat: Seat) => {
     if (seat.availabilityStatus === "BOOKED") return;

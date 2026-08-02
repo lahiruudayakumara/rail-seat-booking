@@ -41,6 +41,17 @@ export function JourneySearch() {
   const formatStationName = (name: string) =>
     t(`stations.${name}`, name);
 
+  const originPosition = stationItems.find((station) => station.id === originId)?.position;
+  const destinationItems = stationItems.filter(
+    (station) => originPosition != null && station.position != null && station.position > originPosition,
+  );
+  const canSearch = Boolean(routeId && originId && destinationId && date);
+
+  const search = () => {
+    handleSearch();
+    window.setTimeout(() => document.getElementById("train-results")?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
+  };
+
   return (
     <section className="panel p-6 md:p-8" aria-labelledby="journey-heading">
       <div className="mb-5 border-b border-stone-200 pb-4">
@@ -85,10 +96,10 @@ export function JourneySearch() {
           <select
             value={destinationId}
             onChange={(e) => setDestinationId(e.target.value)}
-            disabled={!routeId || stationsQuery.isLoading}
+            disabled={!originId || stationsQuery.isLoading}
           >
             <option value="">{t("search.destinationPlaceholder")}</option>
-            {stationItems.slice(1).map((x: Station) => (
+            {destinationItems.map((x: Station) => (
               <option key={x.id} value={x.id}>
                 {formatStationName(x.name)}
               </option>
@@ -108,8 +119,8 @@ export function JourneySearch() {
         <div className="flex flex-col justify-end">
           <Button
             variant="primary"
-            onClick={handleSearch}
-            disabled={!routeId || routesQuery.isLoading || stationsQuery.isLoading}
+            onClick={search}
+            disabled={!canSearch || routesQuery.isLoading || stationsQuery.isLoading}
             className="w-full"
           >
             <span>{t("search.submitButton")}</span>
@@ -117,6 +128,10 @@ export function JourneySearch() {
           </Button>
         </div>
       </div>
+
+      <p className="mt-4 text-xs text-stone-500">
+        {originId ? t("search.destinationHint") : t("search.originHint")}
+      </p>
 
       {(routesQuery.isError || stationsQuery.isError) && (
         <InlineError message={t("search.loadError")} />

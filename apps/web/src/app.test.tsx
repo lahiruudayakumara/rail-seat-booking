@@ -59,10 +59,12 @@ vi.mock("@/api", () => ({
 }));
 
 test("renders the journey search page", async () => {
+  const user = userEvent.setup();
   render(<AppRouter />);
   expect(screen.getByRole("heading", { name: /where are you travelling/i })).toBeInTheDocument();
   expect(screen.getByRole("button", { name: /find trains/i })).toBeInTheDocument();
   expect(await screen.findByRole("option", { name: "Colombo Fort" })).toBeInTheDocument();
+  await user.selectOptions(screen.getByRole("combobox", { name: "Origin Station" }), "station-1");
   expect(screen.getByRole("option", { name: "Kandy" })).toBeInTheDocument();
 });
 

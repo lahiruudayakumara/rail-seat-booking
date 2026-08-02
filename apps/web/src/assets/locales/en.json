@@ -23,6 +23,8 @@
     "destinationPlaceholder": "Select station",
     "dateLabel": "Travel Date",
     "submitButton": "Find trains",
+    "originHint": "Choose where you board first; only valid onward destinations will be shown.",
+    "destinationHint": "Your destination list is filtered to stops after your boarding station.",
     "validationError": "Choose a destination that comes after the origin on this route.",
     "loadError": "Stations could not be loaded. Is the API running?"
   },
@@ -30,7 +32,8 @@
     "title": "Choose a train",
     "kicker": "SCHEDULED SERVICE",
     "loading": "Finding scheduled trains",
-    "empty": "No scheduled trains were found for this date."
+    "empty": "No scheduled trains were found for this date.",
+    "loadError": "Scheduled trains could not be loaded. Check your connection and try again."
   },
   "seats": {
     "title": "Choose an available seat",
@@ -38,7 +41,10 @@
     "coach": "Coach {{code}}",
     "classAvailable": "{{coachClass}} class · {{count}} available",
     "loading": "Checking segment availability",
+    "loadError": "Seat availability could not be loaded. Check your connection and try again.",
     "empty": "No seats remain for this segment. Try another train or date.",
+    "available": "Available",
+    "selected": "Selected",
     "window": "Window",
     "aisle": "Aisle",
     "booked": "Booked"
@@ -50,13 +56,18 @@
     "email": "Email",
     "phone": "Phone",
     "confirmButton": "Confirm booking",
+    "payButton": "Pay {{amount}} and reserve",
     "confirming": "Confirming safely…",
+    "contactHint": "Provide an email or phone number. You will use it with your reference to securely manage this booking.",
     "fareKicker": "FARE SUMMARY",
     "coachSeat": "Coach / seat",
     "total": "Total",
     "distanceTimer": "{{distance}} km · fare held until {{expires}}",
     "calculating": "Calculating fare",
-    "quoteError": "Fare could not be calculated."
+    "quoteError": "The fare or seat hold could not be created.",
+    "holdCountdown": "Seat held for {{minutes}}:{{seconds}}",
+    "holdExpired": "This seat hold expired.",
+    "renewHold": "Check and hold this seat again"
   },
   "confirmation": {
     "kicker": "BOOKING {{status}}",
@@ -65,6 +76,10 @@
     "referenceLabel": "BOOKING REFERENCE",
     "cancelButton": "Cancel booking",
     "cancelling": "Cancelling…",
+    "cancelConfirmTitle": "Cancel this reservation?",
+    "cancelConfirmBody": "Your ticket will be cancelled, the seat will return to availability, and the eligible payment amount will be refunded.",
+    "keepBooking": "Keep booking",
+    "confirmCancellation": "Yes, cancel and refund",
     "ticketCode": "Ticket verification code",
     "refunded": "Refund completed: {{amount}}"
   },
@@ -97,7 +112,7 @@
     "a3": "Yes, active bookings can be cancelled at any time using your booking reference code."
   },
   "footer": {
-    "desc": "Official Sri Lanka Hill Country Railway Segment Seat Reservation Portal.",
+    "desc": "A demonstration of segment-based seat reservation for Sri Lanka's Hill Country railway.",
     "copyright": "© 2026 Lanka Rail Reserve. All rights reserved."
   },
   "stations": {
@@ -117,5 +132,11 @@
     "en": "English",
     "si": "සිංහල",
     "ta": "தமிழ்"
+  },
+  "common": {
+    "tryAgain": "Try again",
+    "bookAnother": "Book another journey",
+    "copyReference": "Copy reference",
+    "copied": "Copied"
   }
 }

@@ -35,12 +35,16 @@ export const searchSlice = createSlice({
     },
     setOriginId: (state, action: PayloadAction<string>) => {
       state.originId = action.payload;
+      state.destinationId = "";
+      state.searched = false;
     },
     setDestinationId: (state, action: PayloadAction<string>) => {
       state.destinationId = action.payload;
+      state.searched = false;
     },
     setDate: (state, action: PayloadAction<string>) => {
       state.date = action.payload;
+      state.searched = false;
     },
     setSearched: (state, action: PayloadAction<boolean>) => {
       state.searched = action.payload;

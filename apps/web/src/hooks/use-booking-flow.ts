@@ -20,9 +20,12 @@ import { useJourneySearch } from "./use-journey-search";
 import { useSeatSelection } from "./use-seat-selection";
 
 const passengerSchema = z.object({
-  fullName: z.string().min(2, "Full name is required"),
-  email: z.string().email("Valid email is required"),
-  phone: z.string().min(8, "Phone number is required"),
+  fullName: z.string().trim().min(2, "Full name is required"),
+  email: z.string().trim().refine((value) => !value || z.email().safeParse(value).success, "Enter a valid email address"),
+  phone: z.string().trim().refine((value) => !value || /^\+[1-9]\d{7,14}$/.test(value), "Use international format, for example +94770000000"),
+}).refine((value) => Boolean(value.email || value.phone), {
+  message: "Enter an email address or phone number",
+  path: ["email"],
 });
 
 export type PassengerFormValues = z.infer<typeof passengerSchema>;
@@ -97,10 +100,26 @@ export function useBookingFlow() {
       dispatch(setSearched(false));
       dispatch(setNotice("Booking cancelled. You can search again whenever ready."));
     },
+    onError: (err: Error) => {
+      const message = axios.isAxiosError<ApiError>(err) ? err.response?.data?.message : err.message;
+      dispatch(setNotice(message || "Booking could not be cancelled. Please try again."));
+    },
   });
 
   const submitPassenger = (values: PassengerFormValues) => {
     bookingMutation.mutate(values);
+  };
+
+  const startOver = () => {
+    dispatch(setBooking(undefined));
+    dispatch(setTicket(undefined));
+    dispatch(setSelectedSeat(undefined));
+    dispatch(setQuote(undefined));
+    dispatch(setHold(undefined));
+    dispatch(setRunId(""));
+    dispatch(setSearched(false));
+    dispatch(setNotice(""));
+    form.reset();
   };
 
   return {
@@ -113,5 +132,6 @@ export function useBookingFlow() {
     bookingMutation,
     cancelMutation,
     submitPassenger,
+    startOver,
   };
 }
