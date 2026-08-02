@@ -13,12 +13,23 @@ type PassengerInput struct {
 	Phone    string `json:"phone"`
 }
 type CreateRequest struct {
+	HoldID               uuid.UUID      `json:"holdId"`
+	HoldToken            string         `json:"holdToken"`
 	FareQuoteID          uuid.UUID      `json:"fareQuoteId"`
 	TrainRunID           uuid.UUID      `json:"trainRunId"`
 	SeatID               uuid.UUID      `json:"seatId"`
 	OriginStationID      uuid.UUID      `json:"originStationId"`
 	DestinationStationID uuid.UUID      `json:"destinationStationId"`
 	Passenger            PassengerInput `json:"passenger"`
+}
+type HoldRequest struct {
+	FareQuoteID uuid.UUID `json:"fareQuoteId"`
+}
+type Hold struct {
+	ID              uuid.UUID `json:"id"`
+	Status          string    `json:"status"`
+	ExpiresAt       time.Time `json:"expiresAt"`
+	ManagementToken string    `json:"managementToken"`
 }
 type AccessRequest struct {
 	Reference string `json:"reference"`

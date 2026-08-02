@@ -17,7 +17,7 @@ import { formatMoney } from "@/utils";
 export function PassengerFare() {
   const { t } = useTranslation();
   const { origin, destination } = useJourneySearch();
-  const { selectedSeat, quote, quoteMutation } = useSeatSelection();
+  const { selectedSeat, quote, hold, quoteMutation } = useSeatSelection();
   const { form, bookingMutation, submitPassenger } = useBookingFlow();
 
   if (!selectedSeat) return null;
@@ -54,7 +54,7 @@ export function PassengerFare() {
           <Button
             variant="primary"
             className="justify-center"
-            disabled={!quote || bookingMutation.isPending}
+            disabled={!quote || !hold || bookingMutation.isPending}
           >
             {bookingMutation.isPending ? t("passenger.confirming") : t("passenger.confirmButton")}
             <Check size={16} />
@@ -88,7 +88,7 @@ export function PassengerFare() {
               <p className="mt-3 text-xs text-white/70">
                 {t("passenger.distanceTimer", {
                   distance: quote.distanceKm,
-                  expires: new Date(quote.expiresAt).toLocaleTimeString([], {
+                  expires: new Date(hold?.expiresAt ?? quote.expiresAt).toLocaleTimeString([], {
                     hour: "2-digit",
                     minute: "2-digit",
                   }),

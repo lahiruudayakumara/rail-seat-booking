@@ -44,6 +44,13 @@ export type FareQuote = {
   expiresAt: string;
 };
 
+export type BookingHold = {
+  id: string;
+  status: "HELD";
+  expiresAt: string;
+  managementToken: string;
+};
+
 export type Money = {
   amountMinor: number;
   currency: string;
@@ -66,6 +73,8 @@ export type Booking = {
 };
 
 export type CreateBookingRequest = {
+  holdId: string;
+  holdToken: string;
   fareQuoteId: string;
   trainRunId: string;
   seatId: string;

@@ -141,6 +141,18 @@ paths:
         '409': {$ref: '#/components/responses/Conflict'}
         '422': {$ref: '#/components/responses/Unprocessable'}
         '503': {$ref: '#/components/responses/ServiceUnavailable'}
+  /api/v1/booking-holds:
+    post:
+      tags: [Bookings]
+      operationId: createBookingHold
+      description: Atomically holds the quoted seat and segment for a short period.
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/BookingHoldRequest'}}}}
+      responses:
+        '201': {description: Seat held, content: {application/json: {schema: {$ref: '#/components/schemas/BookingHold'}}}}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/Unprocessable'}
+        '429': {$ref: '#/components/responses/TooManyRequests'}
   /api/v1/bookings/access:
     post:
       tags: [Bookings]
@@ -273,14 +285,30 @@ components:
     CreateBookingRequest:
       type: object
       additionalProperties: false
-      required: [fareQuoteId, trainRunId, seatId, originStationId, destinationStationId, passenger]
+      required: [holdId, holdToken, fareQuoteId, trainRunId, seatId, originStationId, destinationStationId, passenger]
       properties:
+        holdId: {type: string, format: uuid}
+        holdToken: {type: string}
         fareQuoteId: {type: string, format: uuid}
         trainRunId: {type: string, format: uuid}
         seatId: {type: string, format: uuid}
         originStationId: {type: string, format: uuid}
         destinationStationId: {type: string, format: uuid}
         passenger: {$ref: '#/components/schemas/PassengerInput'}
+    BookingHoldRequest:
+      type: object
+      additionalProperties: false
+      required: [fareQuoteId]
+      properties:
+        fareQuoteId: {type: string, format: uuid}
+    BookingHold:
+      type: object
+      required: [id, status, expiresAt, managementToken]
+      properties:
+        id: {type: string, format: uuid}
+        status: {type: string, const: HELD}
+        expiresAt: {type: string, format: date-time}
+        managementToken: {type: string}
     BookingAccessRequest:
       type: object
       additionalProperties: false

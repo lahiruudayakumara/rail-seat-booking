@@ -21,7 +21,7 @@ func (r *Repository) List(ctx context.Context, runID uuid.UUID, segment journey.
 		args = append(args, coachClass)
 		filter = fmt.Sprintf(" AND c.coach_class=$%d", len(args))
 	}
-	query := `SELECT s.id,s.label,c.id,c.code,c.coach_class,s.attributes FROM train_runs tr JOIN coaches c ON c.train_id=tr.train_id AND c.active AND c.reservation_type='RESERVED' JOIN seats s ON s.coach_id=c.id AND s.active WHERE tr.id=$1` + filter + ` AND NOT EXISTS (SELECT 1 FROM bookings b WHERE b.train_run_id=tr.id AND b.seat_id=s.id AND b.status IN ('HELD','CONFIRMED') AND int4range(b.origin_position,b.destination_position,'[)') && int4range($2,$3,'[)')) ORDER BY c.sequence,s.row_number,s.column_code`
+	query := `SELECT s.id,s.label,c.id,c.code,c.coach_class,s.attributes FROM train_runs tr JOIN coaches c ON c.train_id=tr.train_id AND c.active AND c.reservation_type='RESERVED' JOIN seats s ON s.coach_id=c.id AND s.active WHERE tr.id=$1` + filter + ` AND NOT EXISTS (SELECT 1 FROM bookings b WHERE b.train_run_id=tr.id AND b.seat_id=s.id AND (b.status='CONFIRMED' OR (b.status='HELD' AND b.hold_expires_at>now())) AND int4range(b.origin_position,b.destination_position,'[)') && int4range($2,$3,'[)')) ORDER BY c.sequence,s.row_number,s.column_code`
 	rows, err := r.db.Query(ctx, query, args...)
 	if err != nil {
 		return nil, err
@@ -49,7 +49,7 @@ func (r *Repository) SeatMap(ctx context.Context, runID uuid.UUID, segment journ
 		args = append(args, coachClass)
 		filter = fmt.Sprintf(" AND c.coach_class=$%d", len(args))
 	}
-	query := `SELECT s.id,s.label,c.id,c.code,c.coach_class,s.attributes,CASE WHEN EXISTS (SELECT 1 FROM bookings b WHERE b.train_run_id=tr.id AND b.seat_id=s.id AND b.status IN ('HELD','CONFIRMED') AND int4range(b.origin_position,b.destination_position,'[)') && int4range($2,$3,'[)')) THEN 'BOOKED' ELSE 'AVAILABLE' END FROM train_runs tr JOIN coaches c ON c.train_id=tr.train_id AND c.active AND c.reservation_type='RESERVED' JOIN seats s ON s.coach_id=c.id AND s.active WHERE tr.id=$1` + filter + ` ORDER BY c.sequence,s.row_number,s.column_code`
+	query := `SELECT s.id,s.label,c.id,c.code,c.coach_class,s.attributes,CASE WHEN EXISTS (SELECT 1 FROM bookings b WHERE b.train_run_id=tr.id AND b.seat_id=s.id AND (b.status='CONFIRMED' OR (b.status='HELD' AND b.hold_expires_at>now())) AND int4range(b.origin_position,b.destination_position,'[)') && int4range($2,$3,'[)')) THEN 'BOOKED' ELSE 'AVAILABLE' END FROM train_runs tr JOIN coaches c ON c.train_id=tr.train_id AND c.active AND c.reservation_type='RESERVED' JOIN seats s ON s.coach_id=c.id AND s.active WHERE tr.id=$1` + filter + ` ORDER BY c.sequence,s.row_number,s.column_code`
 	rows, err := r.db.Query(ctx, query, args...)
 	if err != nil {
 		return nil, err

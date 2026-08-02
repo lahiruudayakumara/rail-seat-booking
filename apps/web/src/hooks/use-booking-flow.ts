@@ -8,6 +8,7 @@ import { cancelBooking, createBooking } from "../api";
 import { useAppDispatch, useAppSelector } from "../store";
 import {
   setBooking,
+  setHold,
   setQuote,
   setRunId,
   setSelectedSeat,
@@ -27,7 +28,7 @@ export type PassengerFormValues = z.infer<typeof passengerSchema>;
 
 export function useBookingFlow() {
   const dispatch = useAppDispatch();
-  const { selectedSeat, quote, booking } = useAppSelector((state) => state.booking);
+  const { selectedSeat, quote, hold, booking } = useAppSelector((state) => state.booking);
   const { notice } = useAppSelector((state) => state.ui);
   const { runId, seatsQuery } = useSeatSelection();
   const { originId, destinationId } = useJourneySearch();
@@ -39,8 +40,10 @@ export function useBookingFlow() {
 
   const bookingMutation = useMutation({
     mutationFn: (values: PassengerFormValues) => {
-      if (!runId || !selectedSeat || !quote) throw new Error("Booking selection missing");
+      if (!runId || !selectedSeat || !quote || !hold) throw new Error("Booking selection missing");
       return createBooking({
+        holdId: hold.id,
+        holdToken: hold.managementToken,
         fareQuoteId: quote.id,
         trainRunId: runId,
         seatId: selectedSeat.id,
@@ -64,6 +67,7 @@ export function useBookingFlow() {
         if (err.response?.status === 409) {
           dispatch(setSelectedSeat(undefined));
           dispatch(setQuote(undefined));
+          dispatch(setHold(undefined));
           void seatsQuery.refetch();
         }
         dispatch(setNotice(apiError?.message || "Failed to create booking"));
@@ -82,6 +86,7 @@ export function useBookingFlow() {
       dispatch(setBooking(undefined));
       dispatch(setSelectedSeat(undefined));
       dispatch(setQuote(undefined));
+      dispatch(setHold(undefined));
       dispatch(setRunId(""));
       dispatch(setSearched(false));
       dispatch(setNotice("Booking cancelled. You can search again whenever ready."));

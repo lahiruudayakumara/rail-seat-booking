@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -15,13 +16,46 @@ import (
 )
 
 type Service struct {
-	pool   *pgxpool.Pool
-	repo   *Repository
-	access *AccessSigner
+	pool    *pgxpool.Pool
+	repo    *Repository
+	access  *AccessSigner
+	holdTTL time.Duration
 }
 
-func NewService(pool *pgxpool.Pool, repo *Repository, access *AccessSigner) *Service {
-	return &Service{pool: pool, repo: repo, access: access}
+func NewService(pool *pgxpool.Pool, repo *Repository, access *AccessSigner, holdTTL time.Duration) *Service {
+	return &Service{pool: pool, repo: repo, access: access, holdTTL: holdTTL}
+}
+
+func (s *Service) CreateHold(ctx context.Context, request HoldRequest, requestID string) (Hold, error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return Hold{}, apperror.Wrap(err)
+	}
+	defer tx.Rollback(ctx)
+	if err = s.repo.ExpireHolds(ctx, tx); err != nil {
+		return Hold{}, apperror.Wrap(err)
+	}
+	quote, err := s.repo.Quote(ctx, tx, request.FareQuoteID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Hold{}, apperror.New(422, "VALIDATION_ERROR", "Fare quote is invalid or expired.", nil)
+	}
+	if err != nil {
+		return Hold{}, apperror.Wrap(err)
+	}
+	holdID, expiresAt := uuid.New(), time.Now().Add(s.holdTTL)
+	if err = s.repo.InsertHold(ctx, tx, holdID, quote, expiresAt); err != nil {
+		if IsExclusionViolation(err) {
+			return Hold{}, apperror.New(409, "SEAT_NO_LONGER_AVAILABLE", "This seat is no longer available for the selected journey segment.", nil)
+		}
+		return Hold{}, apperror.Wrap(err)
+	}
+	if err = s.repo.InsertAudit(ctx, tx, uuid.New(), holdID, "SEAT_HELD", requestID); err != nil {
+		return Hold{}, apperror.Wrap(err)
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return Hold{}, apperror.Wrap(err)
+	}
+	return Hold{ID: holdID, Status: "HELD", ExpiresAt: expiresAt, ManagementToken: s.access.Sign(holdID)}, nil
 }
 func (s *Service) Create(ctx context.Context, request CreateRequest, idempotencyKey string, payload []byte, requestID string) (Booking, bool, error) {
 	if len(idempotencyKey) < 16 || len(idempotencyKey) > 128 {
@@ -64,24 +98,27 @@ func (s *Service) Create(ctx context.Context, request CreateRequest, idempotency
 			return item, true, err
 		}
 	}
-	quote, err := s.repo.Quote(ctx, tx, request.FareQuoteID)
+	if request.HoldID == uuid.Nil || s.access.Verify(request.HoldToken, request.HoldID) != nil {
+		return Booking{}, false, apperror.New(401, "HOLD_ACCESS_DENIED", "A valid seat hold is required.", nil)
+	}
+	quote, status, expiresAt, err := s.repo.LockHold(ctx, tx, request.HoldID)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return Booking{}, false, apperror.New(422, "VALIDATION_ERROR", "Fare quote is invalid or expired.", nil)
+		return Booking{}, false, apperror.New(404, "HOLD_NOT_FOUND", "Seat hold was not found.", nil)
 	}
 	if err != nil {
 		return Booking{}, false, apperror.Wrap(err)
 	}
-	if quote.TrainRunID != request.TrainRunID || quote.SeatID != request.SeatID || quote.OriginStationID != request.OriginStationID || quote.DestinationStationID != request.DestinationStationID {
-		return Booking{}, false, apperror.Validation("fareQuoteId", "Fare quote does not match the booking.")
+	if status != "HELD" || !time.Now().Before(expiresAt) {
+		return Booking{}, false, apperror.New(409, "HOLD_EXPIRED", "The seat hold has expired. Select the seat again.", nil)
 	}
-	passengerID, bookingID := uuid.New(), uuid.New()
+	if quote.TrainRunID != request.TrainRunID || quote.SeatID != request.SeatID || quote.OriginStationID != request.OriginStationID || quote.DestinationStationID != request.DestinationStationID {
+		return Booking{}, false, apperror.Validation("holdId", "Seat hold does not match the booking.")
+	}
+	passengerID, bookingID := uuid.New(), request.HoldID
 	if err = s.repo.InsertPassenger(ctx, tx, passengerID, request.Passenger); err != nil {
 		return Booking{}, false, apperror.Wrap(err)
 	}
-	if err = s.repo.InsertBooking(ctx, tx, bookingID, bookingReference(bookingID), passengerID, quote); err != nil {
-		if IsExclusionViolation(err) {
-			return Booking{}, false, apperror.New(409, "SEAT_NO_LONGER_AVAILABLE", "This seat is no longer available for the selected journey segment.", map[string]any{"seatId": request.SeatID, "trainRunId": request.TrainRunID})
-		}
+	if err = s.repo.ConfirmHold(ctx, tx, bookingID, passengerID, bookingReference(bookingID)); err != nil {
 		return Booking{}, false, apperror.Wrap(err)
 	}
 	if err = s.repo.InsertAudit(ctx, tx, uuid.New(), bookingID, "BOOKING_CONFIRMED", requestID); err != nil {

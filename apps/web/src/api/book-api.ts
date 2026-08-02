@@ -1,5 +1,5 @@
 import { api } from "./api-instance";
-import type { Booking, CreateBookingRequest, FareQuote, Seat } from "@/types";
+import type { Booking, BookingHold, CreateBookingRequest, FareQuote, Seat } from "@/types";
 
 export const bookApi = {
   getAvailableSeats: async (runId: string, originId: string, destinationId: string) => {
@@ -28,6 +28,11 @@ export const bookApi = {
       originStationId: params.originStationId,
       destinationStationId: params.destinationStationId,
     });
+    return res.data;
+  },
+
+  createHold: async (fareQuoteId: string) => {
+    const res = await api.post<BookingHold>("/api/v1/booking-holds", { fareQuoteId });
     return res.data;
   },
 
@@ -70,6 +75,10 @@ export function getQuote(params: {
   seatId: string;
 }) {
   return bookApi.getQuote(params);
+}
+
+export function createHold(fareQuoteId: string) {
+  return bookApi.createHold(fareQuoteId);
 }
 
 export function createBooking(body: CreateBookingRequest) {

@@ -30,7 +30,7 @@ func NewRouter(pool *pgxpool.Pool, logger *slog.Logger, cfg config.Config) http.
 	availabilityHandler := availability.NewHandler(availability.NewService(availability.NewRepository(pool), journeyService), logger)
 	fareHandler := fare.NewHandler(fare.NewService(fare.NewRepository(pool), journeyService, 5*time.Minute), logger)
 	accessSigner := booking.NewAccessSigner(cfg.ManagementSecret, cfg.ManagementTTL)
-	bookingHandler := booking.NewHandler(booking.NewService(pool, booking.NewRepository(), accessSigner), logger)
+	bookingHandler := booking.NewHandler(booking.NewService(pool, booking.NewRepository(), accessSigner, cfg.SeatHoldTTL), logger)
 	healthHandler := health.NewHandler(pool, logger, cfg.DatabaseTimeout)
 	docsHandler := apidocs.NewHandler(cfg.OpenAPIPath, logger)
 

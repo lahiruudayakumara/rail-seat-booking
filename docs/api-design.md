@@ -21,7 +21,8 @@ Public search/quote/create endpoints are initially anonymous and rate-limited. U
 | `GET /api/v1/train-runs/{trainRunId}/available-seats` | Required origin/destination UUIDs; optional `coachClass` | 200 available seat list | 400,404 | Public/rate-limited; snapshot only |
 | `GET /api/v1/train-runs/{trainRunId}/seat-map` | Required origin/destination UUIDs; optional `coachClass` | 200 all reserved seats with segment status | 400,404,422 | Public/rate-limited; snapshot only |
 | `POST /api/v1/fare-quotes` | Quote run, seat and endpoints | 201 quote | 400,404,422 | Public/rate-limited; semantically idempotent but creates quote ID |
-| `POST /api/v1/bookings` | Confirm quote/seat/passenger | 201 booking; replay may be 200/201 with replay header | 400,404,409,422,503 | Public; **Idempotency-Key required** |
+| `POST /api/v1/booking-holds` | Atomically hold a quoted seat/segment | 201 hold and expiry | 400,409,422,429 | Public/rate-limited; short-lived signed hold token |
+| `POST /api/v1/bookings` | Convert a valid hold into a confirmed booking | 201 booking; replay may be 200/201 with replay header | 400,401,404,409,422,503 | Hold token; **Idempotency-Key required** |
 | `POST /api/v1/bookings/access` | Verify reference plus booking email/phone | 200 booking and short-lived management token | 400,404,429 | Public/rate-limited; contact verification required |
 | `POST /api/v1/bookings/{bookingId}/cancel` | Optional `{reason}` | 200 updated booking | 400,401/403,404,409,422 | Owner/support; repeat-safe, key recommended |
 

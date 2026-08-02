@@ -24,6 +24,7 @@ type Config struct {
 	OpenAPIPath       string
 	ManagementSecret  string
 	ManagementTTL     time.Duration
+	SeatHoldTTL       time.Duration
 }
 
 func Load() (Config, error) {
@@ -42,6 +43,7 @@ func Load() (Config, error) {
 		OpenAPIPath:       value("OPENAPI_PATH", "docs/openapi.yaml"),
 		ManagementSecret:  value("MANAGEMENT_TOKEN_SECRET", "local-development-management-secret-change-me"),
 		ManagementTTL:     duration("MANAGEMENT_TOKEN_TTL", 30*time.Minute),
+		SeatHoldTTL:       duration("SEAT_HOLD_TTL", 10*time.Minute),
 	}
 	if cfg.DatabaseURL == "" {
 		return Config{}, fmt.Errorf("DATABASE_URL is required")

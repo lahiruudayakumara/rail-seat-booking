@@ -25,8 +25,22 @@ func NewHandler(service *Service, logger *slog.Logger) *Handler {
 }
 func (h *Handler) Routes(r chi.Router) {
 	r.With(httpmiddleware.RateLimit(30, time.Minute)).Post("/bookings", h.create)
+	r.With(httpmiddleware.RateLimit(60, time.Minute)).Post("/booking-holds", h.createHold)
 	r.With(httpmiddleware.RateLimit(10, time.Minute)).Post("/bookings/access", h.access)
 	r.Post("/bookings/{bookingId}/cancel", h.cancel)
+}
+func (h *Handler) createHold(w http.ResponseWriter, r *http.Request) {
+	var request HoldRequest
+	if err := httpx.DecodeJSON(w, r, &request); err != nil {
+		httpx.WriteError(w, r, h.logger, err)
+		return
+	}
+	hold, err := h.service.CreateHold(r.Context(), request, httpx.RequestID(r))
+	if err != nil {
+		httpx.WriteError(w, r, h.logger, err)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusCreated, hold)
 }
 func (h *Handler) create(w http.ResponseWriter, r *http.Request) {
 	payload, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 1<<20))

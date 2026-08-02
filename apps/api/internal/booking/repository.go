@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -38,6 +40,25 @@ func (r *Repository) InsertPassenger(ctx context.Context, db database.DBTX, id u
 }
 func (r *Repository) InsertBooking(ctx context.Context, db database.DBTX, id uuid.UUID, reference string, passengerID uuid.UUID, q QuoteSnapshot) error {
 	_, err := db.Exec(ctx, `INSERT INTO bookings(id,reference,train_run_id,seat_id,passenger_id,origin_station_id,destination_station_id,origin_position,destination_position,status,fare_rule_id,fare_total_minor,fare_currency,fare_currency_scale,fare_breakdown,confirmed_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,'CONFIRMED',$10,$11,$12,$13,$14,now())`, id, reference, q.TrainRunID, q.SeatID, passengerID, q.OriginStationID, q.DestinationStationID, q.OriginPosition, q.DestinationPosition, q.FareRuleID, q.AmountMinor, q.Currency, q.CurrencyScale, q.Breakdown)
+	return err
+}
+func (r *Repository) ExpireHolds(ctx context.Context, db database.DBTX) error {
+	_, err := db.Exec(ctx, `UPDATE bookings SET status='EXPIRED',updated_at=now() WHERE status='HELD' AND hold_expires_at<=now()`)
+	return err
+}
+func (r *Repository) InsertHold(ctx context.Context, db database.DBTX, id uuid.UUID, q QuoteSnapshot, expiresAt time.Time) error {
+	_, err := db.Exec(ctx, `INSERT INTO bookings(id,reference,train_run_id,seat_id,origin_station_id,destination_station_id,origin_position,destination_position,status,fare_rule_id,fare_total_minor,fare_currency,fare_currency_scale,fare_breakdown,hold_expires_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,'HELD',$9,$10,$11,$12,$13,$14)`, id, "HLD-"+strings.ToUpper(id.String()[:12]), q.TrainRunID, q.SeatID, q.OriginStationID, q.DestinationStationID, q.OriginPosition, q.DestinationPosition, q.FareRuleID, q.AmountMinor, q.Currency, q.CurrencyScale, q.Breakdown, expiresAt)
+	return err
+}
+func (r *Repository) LockHold(ctx context.Context, db database.DBTX, id uuid.UUID) (QuoteSnapshot, string, time.Time, error) {
+	var q QuoteSnapshot
+	var status string
+	var expiresAt time.Time
+	err := db.QueryRow(ctx, `SELECT train_run_id,seat_id,origin_station_id,destination_station_id,fare_rule_id,origin_position,destination_position,fare_total_minor,fare_currency,fare_currency_scale,fare_breakdown,status,hold_expires_at FROM bookings WHERE id=$1 FOR UPDATE`, id).Scan(&q.TrainRunID, &q.SeatID, &q.OriginStationID, &q.DestinationStationID, &q.FareRuleID, &q.OriginPosition, &q.DestinationPosition, &q.AmountMinor, &q.Currency, &q.CurrencyScale, &q.Breakdown, &status, &expiresAt)
+	return q, status, expiresAt, err
+}
+func (r *Repository) ConfirmHold(ctx context.Context, db database.DBTX, id, passengerID uuid.UUID, reference string) error {
+	_, err := db.Exec(ctx, `UPDATE bookings SET reference=$2,passenger_id=$3,status='CONFIRMED',confirmed_at=now(),hold_expires_at=NULL,updated_at=now() WHERE id=$1`, id, reference, passengerID)
 	return err
 }
 func (r *Repository) InsertAudit(ctx context.Context, db database.DBTX, eventID, aggregateID uuid.UUID, eventType, requestID string) error {

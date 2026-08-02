@@ -1,14 +1,14 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import type { Seat } from "@/types";
-import { getQuote, getSeatMap } from "../api";
+import { createHold, getQuote, getSeatMap } from "../api";
 import { useAppDispatch, useAppSelector } from "../store";
-import { setQuote, setSelectedSeat } from "../store/slices/booking-slice";
+import { setHold, setQuote, setSelectedSeat } from "../store/slices/booking-slice";
 import { useJourneySearch } from "./use-journey-search";
 import { useTrainSelection } from "./use-train-selection";
 
 export function useSeatSelection() {
   const dispatch = useAppDispatch();
-  const { selectedSeat, quote } = useAppSelector((state) => state.booking);
+  const { selectedSeat, quote, hold } = useAppSelector((state) => state.booking);
   const { originId, destinationId } = useJourneySearch();
   const { runId } = useTrainSelection();
 
@@ -19,9 +19,16 @@ export function useSeatSelection() {
   });
 
   const quoteMutation = useMutation({
-    mutationFn: (seatId: string) =>
-      getQuote({ runId, originStationId: originId, destinationStationId: destinationId, seatId }),
-    onSuccess: (data) => dispatch(setQuote(data)),
+    mutationFn: async (seatId: string) => {
+      const nextQuote = await getQuote({ runId, originStationId: originId, destinationStationId: destinationId, seatId });
+      const nextHold = await createHold(nextQuote.id);
+      return { quote: nextQuote, hold: nextHold };
+    },
+    onSuccess: (data) => {
+      dispatch(setQuote(data.quote));
+      dispatch(setHold(data.hold));
+      void seatsQuery.refetch();
+    },
   });
 
   const groupedSeats = Object.entries(
@@ -35,6 +42,8 @@ export function useSeatSelection() {
   const handleChooseSeat = (seat: Seat) => {
     if (seat.availabilityStatus === "BOOKED") return;
     dispatch(setSelectedSeat(seat));
+    dispatch(setQuote(undefined));
+    dispatch(setHold(undefined));
     quoteMutation.mutate(seat.id);
   };
 
@@ -42,6 +51,7 @@ export function useSeatSelection() {
     runId,
     selectedSeat,
     quote,
+    hold,
     seatsQuery,
     quoteMutation,
     groupedSeats,
