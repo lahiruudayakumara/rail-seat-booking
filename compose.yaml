@@ -51,6 +51,14 @@ services:
       SEAT_HOLD_TTL: ${SEAT_HOLD_TTL:-10m}
       OUTBOX_POLL_INTERVAL: ${OUTBOX_POLL_INTERVAL:-2s}
       PASSENGER_SESSION_TTL: ${PASSENGER_SESSION_TTL:-168h}
+      PAYMENT_PROVIDER: ${PAYMENT_PROVIDER:-sandbox}
+      PAYMENT_PENDING_TTL: ${PAYMENT_PENDING_TTL:-15m}
+      PAYHERE_SANDBOX: ${PAYHERE_SANDBOX:-true}
+      PAYHERE_MERCHANT_ID: ${PAYHERE_MERCHANT_ID:-}
+      PAYHERE_MERCHANT_SECRET: ${PAYHERE_MERCHANT_SECRET:-}
+      PAYHERE_RETURN_URL: ${PAYHERE_RETURN_URL:-http://localhost:3000/payment/return}
+      PAYHERE_CANCEL_URL: ${PAYHERE_CANCEL_URL:-http://localhost:3000/payment/cancel}
+      PAYHERE_NOTIFY_URL: ${PAYHERE_NOTIFY_URL:-http://localhost:8080/api/v1/webhooks/payhere}
     ports:
       - "${API_PORT:-8080}:8080"
     depends_on:
@@ -69,10 +77,12 @@ services:
       target: dev
       args:
         VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8080}
+        VITE_PAYMENT_PROVIDER: ${VITE_PAYMENT_PROVIDER:-sandbox}
     ports:
       - "${WEB_PORT:-3000}:3000"
     environment:
       - VITE_API_BASE_URL=${VITE_API_BASE_URL:-http://localhost:8080}
+      - VITE_PAYMENT_PROVIDER=${VITE_PAYMENT_PROVIDER:-sandbox}
       - CHOKIDAR_USEPOLLING=true
       - WATCHPACK_POLLING=true
     volumes:

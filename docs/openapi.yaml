@@ -15,6 +15,7 @@ tags:
   - {name: Availability}
   - {name: Fares}
   - {name: Bookings}
+  - {name: Payments}
   - {name: Passenger accounts}
   - {name: Administration}
 paths:
@@ -221,6 +222,47 @@ paths:
         '404': {$ref: '#/components/responses/NotFound'}
         '409': {$ref: '#/components/responses/Conflict'}
         '422': {$ref: '#/components/responses/Unprocessable'}
+  /api/v1/payments/payhere:
+    post:
+      tags: [Payments]
+      operationId: startPayHereCheckout
+      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
+      description: Creates or reuses a pending PayHere checkout. The returned fields form a server-signed POST to the hosted checkout page; no merchant secret is returned.
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/PayHereCheckoutRequest'}}}}
+      responses:
+        '201': {description: Signed hosted-checkout form, content: {application/json: {schema: {$ref: '#/components/schemas/PayHereCheckoutResponse'}}}}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/Unprocessable'}
+        '503': {$ref: '#/components/responses/ServiceUnavailable'}
+  /api/v1/payments/{paymentId}:
+    get:
+      tags: [Payments]
+      operationId: getPayHerePayment
+      security: [{bearerAuth: []}]
+      parameters: [{$ref: '#/components/parameters/PaymentId'}]
+      description: Returns the authoritative payment and booking state after the browser returns from hosted checkout.
+      responses:
+        '200': {description: Current payment state and ticket when paid, content: {application/json: {schema: {$ref: '#/components/schemas/PayHerePaymentStatus'}}}}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '404': {$ref: '#/components/responses/NotFound'}
+  /api/v1/webhooks/payhere:
+    post:
+      tags: [Payments]
+      operationId: receivePayHereNotification
+      description: PayHere server callback. The API verifies the provider signature, amount, currency and replay fingerprint before changing durable state.
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema: {$ref: '#/components/schemas/PayHereNotification'}
+      responses:
+        '200': {description: Notification processed or safely deduplicated}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '422': {$ref: '#/components/responses/Unprocessable'}
+        '503': {$ref: '#/components/responses/ServiceUnavailable'}
   /api/v1/tickets/verify:
     post:
       tags: [Bookings]
@@ -264,6 +306,7 @@ components:
     RouteId: {name: routeId, in: path, required: true, schema: {type: string, format: uuid}}
     TrainRunId: {name: trainRunId, in: path, required: true, schema: {type: string, format: uuid}}
     BookingId: {name: bookingId, in: path, required: true, schema: {type: string, format: uuid}}
+    PaymentId: {name: paymentId, in: path, required: true, schema: {type: string, format: uuid}}
     OriginStationId: {name: originStationId, in: query, required: true, schema: {type: string, format: uuid}}
     DestinationStationId: {name: destinationStationId, in: query, required: true, schema: {type: string, format: uuid}}
     Cursor: {name: cursor, in: query, schema: {type: string, maxLength: 512}}
@@ -429,6 +472,50 @@ components:
       properties:
         bookingId: {type: string, format: uuid}
         bookingToken: {type: string}
+    PayHereCheckoutRequest:
+      type: object
+      additionalProperties: false
+      required: [bookingId, bookingToken, billingAddress, city]
+      properties:
+        bookingId: {type: string, format: uuid}
+        bookingToken: {type: string}
+        billingAddress: {type: string, minLength: 3, maxLength: 200}
+        city: {type: string, minLength: 2, maxLength: 80}
+    PayHereCheckoutResponse:
+      type: object
+      required: [paymentId, bookingId, status, expiresAt, actionUrl, fields]
+      properties:
+        paymentId: {type: string, format: uuid}
+        bookingId: {type: string, format: uuid}
+        status: {type: string, const: PENDING}
+        expiresAt: {type: string, format: date-time}
+        actionUrl: {type: string, format: uri, description: PayHere hosted Sandbox or production checkout endpoint selected by server configuration}
+        fields: {type: object, additionalProperties: {type: string}, description: Signed hidden form fields to POST to actionUrl}
+    PayHerePaymentStatus:
+      type: object
+      required: [paymentId, bookingId, status, providerReference, amountMinor, currency, booking]
+      properties:
+        paymentId: {type: string, format: uuid}
+        bookingId: {type: string, format: uuid}
+        status: {type: string, enum: [PENDING, PAID, FAILED, DISPUTED]}
+        providerReference: {type: string}
+        amountMinor: {type: integer, format: int64, minimum: 0}
+        currency: {type: string, pattern: '^[A-Z]{3}$'}
+        paidAt: {type: string, format: date-time}
+        booking: {$ref: '#/components/schemas/Booking'}
+        ticket: {type: object, required: [id, verificationCode, status], properties: {id: {type: string, format: uuid}, verificationCode: {type: string}, status: {type: string, enum: [ACTIVE, CANCELLED, USED]}}}
+    PayHereNotification:
+      type: object
+      additionalProperties: true
+      required: [merchant_id, order_id, payment_id, payhere_amount, payhere_currency, status_code, md5sig]
+      properties:
+        merchant_id: {type: string}
+        order_id: {type: string, format: uuid}
+        payment_id: {type: string}
+        payhere_amount: {type: string, pattern: '^\\d+\\.\\d{2}$'}
+        payhere_currency: {type: string, pattern: '^[A-Z]{3}$'}
+        status_code: {type: string, enum: ['2', '0', '-1', '-2', '-3']}
+        md5sig: {type: string, pattern: '^[A-F0-9]{32}$'}
     CheckoutResult:
       type: object
       required: [payment, ticket, booking]

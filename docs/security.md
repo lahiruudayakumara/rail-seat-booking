@@ -19,6 +19,7 @@ Guest management uses a random booking reference **plus** a separate signed acce
 | CORS/CSRF | Exact origins and minimal headers/methods. Bearer headers are less CSRF-prone; cookie auth requires SameSite, CSRF token and origin checks. |
 | Headers | HSTS in production, CSP, `nosniff`, Referrer-Policy, Permissions-Policy and frame denial/`frame-ancestors`. |
 | Transport | TLS 1.2+ externally and encrypted DB links; redirect HTTP; validate certificates. |
+| Payments | Generate checkout signatures server-side; verify PayHere callback signatures, amount and currency before confirmation; deduplicate callbacks; never trust browser return URLs as proof of payment. |
 | Logging | Redact names/contact, bodies, tokens, cookies, references and idempotency keys; restrict and retain logs by policy. |
 | Audit | Append-only booking/admin events with actor, request ID and before/after safe metadata; alert on gaps/tampering. |
 | Database | Separate migration/runtime/read-only roles; no public endpoint; network allowlist; runtime cannot alter schema/audit history. |
