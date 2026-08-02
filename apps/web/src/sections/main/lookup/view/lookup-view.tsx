@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { QRCodeSVG } from "qrcode.react";
 import { Button, Field, InlineError, TrainFront } from "@/components";
 import { useBookingFlow } from "@/hooks/use-booking-flow";
 import { useBookingLookup } from "@/hooks/use-booking-lookup";
@@ -119,7 +120,16 @@ const LookupView = () => {
                 </div>
               </div>
 
-              <div className="ticket-stub">
+              <div className="ticket-stub flex flex-col items-center justify-between gap-3">
+                <div className="rounded bg-white p-1.5 shadow-sm border border-stone-200">
+                  <QRCodeSVG
+                    value={booking.reference}
+                    size={64}
+                    bgColor="#ffffff"
+                    fgColor="#6b1724"
+                    level="M"
+                  />
+                </div>
                 {booking.status === "CONFIRMED" && (
                   <Button
                     variant="secondary"

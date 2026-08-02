@@ -16,7 +16,7 @@ export function HeaderSection({ activeTab, setActiveTab }: HeaderSectionProps) {
       <nav className="mx-auto flex max-w-6xl flex-col gap-4 sm:flex-row sm:items-center sm:justify-between" aria-label="Primary navigation">
         <button
           type="button"
-          className="flex items-center gap-3 self-start text-left text-lg font-bold tracking-tight text-white"
+          className="flex items-center gap-3 self-start text-left text-lg font-bold tracking-tight text-white cursor-pointer"
           onClick={() => setActiveTab("booking")}
           aria-label={`${t("brand.title")} home`}
         >
@@ -65,9 +65,6 @@ export function HeaderSection({ activeTab, setActiveTab }: HeaderSectionProps) {
       </nav>
 
       <div className="mx-auto mt-14 max-w-6xl text-white">
-        <span className="inline-flex rounded-full border border-amber-200/30 bg-amber-100/10 px-3 py-1 font-mono text-[10px] font-bold tracking-widest text-amber-200">
-          {t("brand.demo")}
-        </span>
         <p className="font-mono text-xs font-bold tracking-widest text-amber-200 uppercase">
           {t("brand.subwayLine")}
         </p>

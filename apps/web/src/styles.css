@@ -483,18 +483,6 @@
   color: white;
 }
 
-/* Loading & Empty States */
-.loading, .empty {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.6rem;
-  min-height: 100px;
-  border: 1px dashed var(--sand-300);
-  border-radius: 12px;
-  color: var(--sand-500);
-}
-
 /* Confirmation Box */
 .confirmation {
   border-radius: 20px;
@@ -527,6 +515,30 @@
   font-size: 1.75rem;
   letter-spacing: 0.08em;
   color: var(--maroon-900);
+}
+
+/* Print Styles for Printable Boarding Pass */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #printable-ticket,
+  #printable-ticket * {
+    visibility: visible;
+  }
+  #printable-ticket {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    box-shadow: none !important;
+    border: 1px solid #d4d4d4 !important;
+  }
+  .no-print {
+    display: none !important;
+  }
 }
 
 @media (max-width: 768px) {
