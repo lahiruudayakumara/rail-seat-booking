@@ -1,0 +1,1 @@
+export { default as LookupView } from "@/sections/main/lookup/view/lookup-view";
