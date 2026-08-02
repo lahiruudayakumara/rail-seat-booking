@@ -2,24 +2,21 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button, Field, InlineError, TrainFront } from "@/components";
 import { useBookingFlow } from "@/hooks/use-booking-flow";
+import { useBookingLookup } from "@/hooks/use-booking-lookup";
 import { formatMoney } from "@/utils";
 
 const LookupView = () => {
   const { t } = useTranslation();
   const { booking, cancelMutation } = useBookingFlow();
+  const lookupMutation = useBookingLookup();
   const [refInput, setRefInput] = useState("");
   const [searched, setSearched] = useState(false);
-  const [errorMsg, setErrorMsg] = useState("");
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (!refInput.trim()) return;
     setSearched(true);
-    if (booking && booking.reference.toLowerCase() === refInput.trim().toLowerCase()) {
-      setErrorMsg("");
-    } else {
-      setErrorMsg(t("lookup.notFound"));
-    }
+    lookupMutation.mutate(refInput);
   };
 
   return (
@@ -40,22 +37,30 @@ const LookupView = () => {
             <input
               placeholder={t("lookup.placeholder")}
               value={refInput}
-              onChange={(e) => setRefInput(e.target.value)}
+              onChange={(e) => {
+                setRefInput(e.target.value);
+                setSearched(false);
+              }}
               className="w-full"
             />
           </Field>
         </div>
-        <Button variant="primary" type="submit" className="w-full sm:w-auto">
-          {t("lookup.button")}
+        <Button
+          variant="primary"
+          type="submit"
+          disabled={lookupMutation.isPending}
+          className="w-full sm:w-auto"
+        >
+          {lookupMutation.isPending ? t("lookup.searching") : t("lookup.button")}
         </Button>
       </form>
 
-      {searched && errorMsg && (
-        <InlineError message={errorMsg} />
+      {searched && lookupMutation.isError && (
+        <InlineError message={t("lookup.notFound")} />
       )}
 
       {/* Matching Booking Found Result */}
-      {booking && booking.reference.toLowerCase() === refInput.trim().toLowerCase() && (
+      {!lookupMutation.isPending && booking && booking.reference.toLowerCase() === refInput.trim().toLowerCase() && (
         <div className="mt-8 border-t border-stone-200 pt-6">
           <div className="ticket-card">
             <div className="ticket-header">

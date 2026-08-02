@@ -56,6 +56,7 @@ export function useBookingFlow() {
     onSuccess: (data) => {
       dispatch(setBooking(data));
       dispatch(setNotice("Booking confirmed safely. Hold your reference tight."));
+      void seatsQuery.refetch();
     },
     onError: (err: Error) => {
       if (axios.isAxiosError<ApiError>(err)) {

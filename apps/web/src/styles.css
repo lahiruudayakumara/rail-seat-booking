@@ -435,6 +435,21 @@
   color: rgba(255, 255, 255, 0.8);
 }
 
+.seat.booked,
+.seat.booked:hover {
+  cursor: not-allowed !important;
+  color: var(--sand-700);
+  background-color: var(--sand-200);
+  border-color: var(--sand-400);
+  opacity: 1;
+}
+
+.seat.booked small {
+  color: var(--maroon-800);
+  font-size: 0.58rem;
+  text-transform: uppercase;
+}
+
 /* Fare Card */
 .fare-card {
   border-radius: 14px;

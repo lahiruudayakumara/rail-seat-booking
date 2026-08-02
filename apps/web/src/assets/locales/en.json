@@ -15,6 +15,8 @@
   "search": {
     "kicker": "PLAN YOUR JOURNEY",
     "title": "Where are you travelling?",
+    "routeLabel": "Railway Route",
+    "routePlaceholder": "Select route",
     "originLabel": "Origin Station",
     "originPlaceholder": "Select station",
     "destinationLabel": "Destination Station",
@@ -32,13 +34,14 @@
   },
   "seats": {
     "title": "Choose an available seat",
-    "sub": "Only reserved seats available for {{origin}} → {{destination}} are shown.",
+    "sub": "Available reserved seats for {{origin}} → {{destination}} are shown. Your confirmed seat remains marked as booked.",
     "coach": "Coach {{code}}",
     "classAvailable": "{{coachClass}} class · {{count}} available",
     "loading": "Checking segment availability",
     "empty": "No seats remain for this segment. Try another train or date.",
     "window": "Window",
-    "aisle": "Aisle"
+    "aisle": "Aisle",
+    "booked": "Booked"
   },
   "passenger": {
     "title": "Passenger and fare",
@@ -69,6 +72,7 @@
     "inputLabel": "Booking Reference",
     "placeholder": "e.g. REF-100001",
     "button": "Search Booking",
+    "searching": "Searching…",
     "notFound": "No active booking found with that reference code."
   },
   "schedules": {

@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import type { Seat } from "@/types";
-import { getAvailableSeats, getQuote } from "../api";
+import { getQuote, getSeatMap } from "../api";
 import { useAppDispatch, useAppSelector } from "../store";
 import { setQuote, setSelectedSeat } from "../store/slices/booking-slice";
 import { useJourneySearch } from "./use-journey-search";
@@ -13,8 +13,8 @@ export function useSeatSelection() {
   const { runId } = useTrainSelection();
 
   const seatsQuery = useQuery({
-    queryKey: ["seats", runId, originId, destinationId],
-    queryFn: () => getAvailableSeats(runId, originId, destinationId),
+    queryKey: ["seat-map", runId, originId, destinationId],
+    queryFn: () => getSeatMap(runId, originId, destinationId),
     enabled: Boolean(runId && originId && destinationId),
   });
 
@@ -33,6 +33,7 @@ export function useSeatSelection() {
   );
 
   const handleChooseSeat = (seat: Seat) => {
+    if (seat.availabilityStatus === "BOOKED") return;
     dispatch(setSelectedSeat(seat));
     quoteMutation.mutate(seat.id);
   };

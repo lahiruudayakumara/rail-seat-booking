@@ -27,7 +27,11 @@ export const searchSlice = createSlice({
   initialState,
   reducers: {
     setRouteId: (state, action: PayloadAction<string>) => {
+      if (state.routeId === action.payload) return;
       state.routeId = action.payload;
+      state.originId = "";
+      state.destinationId = "";
+      state.searched = false;
     },
     setOriginId: (state, action: PayloadAction<string>) => {
       state.originId = action.payload;

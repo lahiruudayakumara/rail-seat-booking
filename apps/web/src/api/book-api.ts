@@ -9,6 +9,13 @@ export const bookApi = {
     return res.data;
   },
 
+  getSeatMap: async (runId: string, originId: string, destinationId: string) => {
+    const res = await api.get<{ items: Seat[] }>(
+      `/api/v1/train-runs/${runId}/seat-map?originStationId=${originId}&destinationStationId=${destinationId}`,
+    );
+    return res.data;
+  },
+
   getQuote: async (params: {
     runId: string;
     originStationId: string;
@@ -36,10 +43,21 @@ export const bookApi = {
     const res = await api.post<Booking>(`/api/v1/bookings/${bookingId}/cancel`, {});
     return res.data;
   },
+
+  getBookingByReference: async (reference: string) => {
+    const res = await api.get<Booking>(
+      `/api/v1/bookings/reference/${encodeURIComponent(reference.trim())}`,
+    );
+    return res.data;
+  },
 };
 
 export function getAvailableSeats(runId: string, originId: string, destinationId: string) {
   return bookApi.getAvailableSeats(runId, originId, destinationId);
+}
+
+export function getSeatMap(runId: string, originId: string, destinationId: string) {
+  return bookApi.getSeatMap(runId, originId, destinationId);
 }
 
 export function getQuote(params: {
@@ -57,6 +75,10 @@ export function createBooking(body: CreateBookingRequest) {
 
 export function cancelBooking(bookingId: string) {
   return bookApi.cancelBooking(bookingId);
+}
+
+export function getBookingByReference(reference: string) {
+  return bookApi.getBookingByReference(reference);
 }
 
 export default bookApi;

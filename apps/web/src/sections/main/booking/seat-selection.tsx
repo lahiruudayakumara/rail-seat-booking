@@ -33,7 +33,7 @@ export function SeatSelection() {
               <span>
                 {t("seats.classAvailable", {
                   coachClass: items[0].coachClass,
-                  count: items.length,
+                  count: items.filter((item) => item.availabilityStatus !== "BOOKED").length,
                 })}
               </span>
             </div>
@@ -41,18 +41,20 @@ export function SeatSelection() {
             <div className="seat-grid">
               {items.map((item) => {
                 const isSelected = selectedSeat?.id === item.id;
+                const isBooked = item.availabilityStatus === "BOOKED";
                 const isWindow = item.attributes.includes("WINDOW");
 
                 return (
                   <button
                     key={item.id}
-                    aria-label={`Seat ${item.label}, ${item.coachClass} class, ${item.attributes.join(" ")}`}
+                    aria-label={`Seat ${item.label}, ${item.coachClass} class, ${isBooked ? t("seats.booked") : item.attributes.join(" ")}`}
                     aria-pressed={isSelected}
-                    className={`seat ${isSelected ? "selected" : ""}`}
+                    className={`seat ${isBooked ? "booked" : isSelected ? "selected" : ""}`}
+                    disabled={isBooked}
                     onClick={() => handleChooseSeat(item)}
                   >
                     <span>{item.label}</span>
-                    <small>{isWindow ? "◫" : "·"}</small>
+                    <small>{isBooked ? t("seats.booked") : isWindow ? "◫" : "·"}</small>
                   </button>
                 );
               })}

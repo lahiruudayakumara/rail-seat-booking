@@ -31,6 +31,7 @@ export type Seat = {
   coachCode: string;
   coachClass: string;
   attributes: string[];
+  availabilityStatus?: "AVAILABLE" | "BOOKED";
 };
 
 export type FareQuote = {

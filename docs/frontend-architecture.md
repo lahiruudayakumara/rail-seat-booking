@@ -26,7 +26,7 @@ flowchart LR
 
 TanStack Query owns server state: routes, runs, availability, quotes and bookings. URL search parameters own shareable journey criteria. React Hook Form owns unsubmitted passenger data with Zod validation matching the OpenAPI contract. Local component state owns visual seat focus/selection. Do not duplicate server collections into a global store. Sensitive passenger values are not persisted to local storage or analytics.
 
-Query keys include all semantic inputs, e.g. `['available-seats',runId,originId,destinationId,class]`. After booking or cancellation invalidate availability for the affected run/segment and the booking query. Quotes have explicit expiry and are never treated as seat holds.
+Query keys include all semantic inputs, e.g. `['seat-map',runId,originId,destinationId,class]`. After booking or cancellation invalidate the seat map for the affected run/segment and the booking query. Quotes have explicit expiry and are never treated as seat holds.
 
 ## Interaction states
 

@@ -1,5 +1,8 @@
+import { useEffect, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import type { Station } from "@/types";
+import type { Route, Station } from "@/types";
+import { getRoutes } from "@/api";
 import { ArrowRight, Button, Field, InlineError } from "@/components";
 import { useJourneySearch } from "@/hooks/use-journey-search";
 import { getTomorrowDate } from "@/store/slices/search-slice";
@@ -13,11 +16,27 @@ export function JourneySearch() {
     date,
     stationItems,
     stationsQuery,
+    setRouteId,
     setOriginId,
     setDestinationId,
     setDate,
     handleSearch,
   } = useJourneySearch();
+
+  const routesQuery = useQuery({
+    queryKey: ["routes"],
+    queryFn: getRoutes,
+  });
+  const routeItems: Route[] = useMemo(
+    () => routesQuery.data?.items ?? [],
+    [routesQuery.data?.items],
+  );
+
+  useEffect(() => {
+    if (!routeId && routeItems.length === 1) {
+      setRouteId(routeItems[0].id);
+    }
+  }, [routeId, routeItems, setRouteId]);
 
   const formatStationName = (name: string) =>
     t(`stations.${name}`, name);
@@ -31,9 +50,28 @@ export function JourneySearch() {
         </h2>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-5">
+        <Field label={t("search.routeLabel")}>
+          <select
+            value={routeId}
+            onChange={(event) => setRouteId(event.target.value)}
+            disabled={routesQuery.isLoading}
+          >
+            <option value="">{t("search.routePlaceholder")}</option>
+            {routeItems.map((route) => (
+              <option key={route.id} value={route.id}>
+                {route.name}
+              </option>
+            ))}
+          </select>
+        </Field>
+
         <Field label={t("search.originLabel")}>
-          <select value={originId} onChange={(e) => setOriginId(e.target.value)}>
+          <select
+            value={originId}
+            onChange={(e) => setOriginId(e.target.value)}
+            disabled={!routeId || stationsQuery.isLoading}
+          >
             <option value="">{t("search.originPlaceholder")}</option>
             {stationItems.slice(0, -1).map((x: Station) => (
               <option key={x.id} value={x.id}>
@@ -44,7 +82,11 @@ export function JourneySearch() {
         </Field>
 
         <Field label={t("search.destinationLabel")}>
-          <select value={destinationId} onChange={(e) => setDestinationId(e.target.value)}>
+          <select
+            value={destinationId}
+            onChange={(e) => setDestinationId(e.target.value)}
+            disabled={!routeId || stationsQuery.isLoading}
+          >
             <option value="">{t("search.destinationPlaceholder")}</option>
             {stationItems.slice(1).map((x: Station) => (
               <option key={x.id} value={x.id}>
@@ -67,7 +109,7 @@ export function JourneySearch() {
           <Button
             variant="primary"
             onClick={handleSearch}
-            disabled={!routeId || stationsQuery.isLoading}
+            disabled={!routeId || routesQuery.isLoading || stationsQuery.isLoading}
             className="w-full"
           >
             <span>{t("search.submitButton")}</span>
@@ -76,7 +118,7 @@ export function JourneySearch() {
         </div>
       </div>
 
-      {stationsQuery.isError && (
+      {(routesQuery.isError || stationsQuery.isError) && (
         <InlineError message={t("search.loadError")} />
       )}
     </section>
