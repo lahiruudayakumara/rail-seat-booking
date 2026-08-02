@@ -42,7 +42,7 @@ func (s *AccessSigner) Verify(token string, bookingID uuid.UUID) error {
 	_, _ = mac.Write([]byte(payload))
 	want := mac.Sum(nil)
 	got, err := base64.RawURLEncoding.DecodeString(parts[2])
-	if err != nil || !hmac.Equal(got, want) {
+	if err != nil || base64.RawURLEncoding.EncodeToString(got) != parts[2] || !hmac.Equal(got, want) {
 		return errors.New("invalid management token")
 	}
 	return nil
