@@ -63,6 +63,27 @@ export type CheckoutResult = {
   booking: Booking;
 };
 
+export type PayHereCheckoutSession = {
+  paymentId: string;
+  bookingId: string;
+  status: "PENDING";
+  expiresAt: string;
+  actionUrl: string;
+  fields: Record<string, string>;
+};
+
+export type PayHerePaymentStatus = {
+  paymentId: string;
+  bookingId: string;
+  status: "PENDING" | "PAID" | "FAILED" | "DISPUTED" | "REFUNDED";
+  providerReference: string;
+  amountMinor: number;
+  currency: string;
+  paidAt?: string;
+  booking: Booking;
+  ticket?: Ticket;
+};
+
 export type Money = {
   amountMinor: number;
   currency: string;

@@ -1,5 +1,7 @@
 import { api } from "./api-instance";
-import type { Booking, BookingHold, CheckoutResult, CreateBookingRequest, FareQuote, Seat } from "@/types";
+import type { Booking, BookingHold, CheckoutResult, CreateBookingRequest, FareQuote, PayHereCheckoutSession, PayHerePaymentStatus, Seat } from "@/types";
+
+export const paymentProvider = import.meta.env.VITE_PAYMENT_PROVIDER === "payhere" ? "payhere" : "sandbox";
 
 export const bookApi = {
   getAvailableSeats: async (runId: string, originId: string, destinationId: string) => {
@@ -53,6 +55,22 @@ export const bookApi = {
     return res.data;
   },
 
+  startPayHereCheckout: async (bookingId: string, bookingToken: string, billingAddress: string, city: string) => {
+    const res = await api.post<PayHereCheckoutSession>(
+      "/api/v1/payments/payhere",
+      { bookingId, bookingToken, billingAddress, city },
+      { headers: { "Idempotency-Key": crypto.randomUUID() } },
+    );
+    return res.data;
+  },
+
+  getPayHerePayment: async (paymentId: string, bookingToken: string) => {
+    const res = await api.get<PayHerePaymentStatus>(`/api/v1/payments/${paymentId}`, {
+      headers: { Authorization: `Bearer ${bookingToken}` },
+    });
+    return res.data;
+  },
+
   cancelBooking: async (bookingId: string, managementToken?: string) => {
     const res = await api.post<Booking>(`/api/v1/bookings/${bookingId}/cancel`, {}, {
       headers: managementToken ? { Authorization: `Bearer ${managementToken}` } : undefined,
@@ -96,6 +114,44 @@ export function createBooking(body: CreateBookingRequest) {
 
 export function checkoutSandbox(bookingId: string, bookingToken: string) {
   return bookApi.checkoutSandbox(bookingId, bookingToken);
+}
+
+export function startPayHereCheckout(bookingId: string, bookingToken: string, billingAddress: string, city: string) {
+  return bookApi.startPayHereCheckout(bookingId, bookingToken, billingAddress, city);
+}
+
+export function getPayHerePayment(paymentId: string, bookingToken: string) {
+  return bookApi.getPayHerePayment(paymentId, bookingToken);
+}
+
+export function redirectToPayHere(session: PayHereCheckoutSession, bookingToken: string) {
+  sessionStorage.setItem(`rail-payhere-${session.paymentId}`, JSON.stringify({ bookingId: session.bookingId, bookingToken }));
+  const form = document.createElement("form");
+  form.method = "POST";
+  form.action = session.actionUrl;
+  for (const [name, value] of Object.entries(session.fields)) {
+    const input = document.createElement("input");
+    input.type = "hidden";
+    input.name = name;
+    input.value = value;
+    form.appendChild(input);
+  }
+  document.body.appendChild(form);
+  form.submit();
+}
+
+export function getStoredPayHereAccess(paymentId: string) {
+  const raw = sessionStorage.getItem(`rail-payhere-${paymentId}`);
+  if (!raw) return undefined;
+  try {
+    return JSON.parse(raw) as { bookingId: string; bookingToken: string };
+  } catch {
+    return undefined;
+  }
+}
+
+export function clearStoredPayHereAccess(paymentId: string) {
+  sessionStorage.removeItem(`rail-payhere-${paymentId}`);
 }
 
 export function cancelBooking(bookingId: string, managementToken?: string) {

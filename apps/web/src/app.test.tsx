@@ -37,6 +37,12 @@ vi.mock("@/api", () => ({
   createHold: vi.fn(),
   createBooking: vi.fn(),
   checkoutSandbox: vi.fn(),
+  paymentProvider: "sandbox",
+  startPayHereCheckout: vi.fn(),
+  getPayHerePayment: vi.fn(),
+  redirectToPayHere: vi.fn(),
+  getStoredPayHereAccess: vi.fn(),
+  clearStoredPayHereAccess: vi.fn(),
   cancelBooking: vi.fn(),
   getBookingByReference: vi.fn().mockResolvedValue({
     id: "booking-1",

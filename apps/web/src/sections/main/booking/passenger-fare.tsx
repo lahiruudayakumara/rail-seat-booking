@@ -17,6 +17,7 @@ import { useNavigate } from "react-router-dom";
 import { useJourneySearch } from "@/hooks/use-journey-search";
 import { useSeatSelection } from "@/hooks/use-seat-selection";
 import { formatMoney } from "@/utils";
+import { paymentProvider } from "@/api";
 
 export function PassengerFare() {
   const { t } = useTranslation();
@@ -71,6 +72,17 @@ export function PassengerFare() {
             </Field>
           </div>
 
+          {paymentProvider === "payhere" && (
+            <div className="grid gap-4 md:grid-cols-2">
+              <Field label="Billing address" error={form.formState.errors.billingAddress?.message}>
+                <input autoComplete="street-address" placeholder="No. 1, Main Street" {...form.register("billingAddress")} />
+              </Field>
+              <Field label="City" error={form.formState.errors.city?.message}>
+                <input autoComplete="address-level2" placeholder="Colombo" {...form.register("city")} />
+              </Field>
+            </div>
+          )}
+
           <p className="text-xs leading-5 text-stone-500">{t("passenger.contactHint")}</p>
 
           <Button
@@ -78,7 +90,7 @@ export function PassengerFare() {
             className="justify-center"
             disabled={!quote || !hold || holdExpired || bookingMutation.isPending}
           >
-            {bookingMutation.isPending ? t("passenger.confirming") : quote ? t("passenger.payButton", { amount: formatMoney(quote) }) : t("passenger.confirmButton")}
+            {bookingMutation.isPending ? t("passenger.confirming") : quote ? paymentProvider === "payhere" ? `Continue to PayHere · ${formatMoney(quote)}` : t("passenger.payButton", { amount: formatMoney(quote) }) : t("passenger.confirmButton")}
             <Check size={16} />
           </Button>
         </form>

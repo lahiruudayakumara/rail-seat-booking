@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form";
 import { useEffect } from "react";
 import { z } from "zod";
 import type { ApiError } from "@/types";
-import { cancelBooking, checkoutSandbox, createBooking } from "../api";
+import { cancelBooking, checkoutSandbox, createBooking, paymentProvider, redirectToPayHere, startPayHereCheckout } from "../api";
 import { useAppDispatch, useAppSelector } from "../store";
 import {
   setBooking,
@@ -25,9 +25,20 @@ const passengerSchema = z.object({
   fullName: z.string().trim().min(2, "Full name is required"),
   email: z.string().trim().refine((value) => !value || z.email().safeParse(value).success, "Enter a valid email address"),
   phone: z.string().trim().refine((value) => !value || /^\+[1-9]\d{7,14}$/.test(value), "Use international format, for example +94770000000"),
+  billingAddress: z.string().trim(),
+  city: z.string().trim(),
 }).refine((value) => Boolean(value.email || value.phone), {
   message: "Enter an email address or phone number",
   path: ["email"],
+}).refine((value) => paymentProvider !== "payhere" || Boolean(value.email && value.phone), {
+  message: "PayHere requires both an email address and phone number",
+  path: ["phone"],
+}).refine((value) => paymentProvider !== "payhere" || value.billingAddress.length >= 3, {
+  message: "Billing address is required for PayHere",
+  path: ["billingAddress"],
+}).refine((value) => paymentProvider !== "payhere" || value.city.length >= 2, {
+  message: "City is required for PayHere",
+  path: ["city"],
 });
 
 export type PassengerFormValues = z.infer<typeof passengerSchema>;
@@ -42,7 +53,7 @@ export function useBookingFlow() {
 
   const form = useForm<PassengerFormValues>({
     resolver: zodResolver(passengerSchema),
-    defaultValues: { fullName: "", email: "", phone: "" },
+    defaultValues: { fullName: "", email: "", phone: "", billingAddress: "", city: "" },
   });
 
   useEffect(() => {
@@ -70,12 +81,21 @@ export function useBookingFlow() {
         },
       }).then(async (heldBooking) => {
         if (!heldBooking.managementToken) throw new Error("Booking payment token missing");
-        return checkoutSandbox(heldBooking.id, heldBooking.managementToken);
+        if (paymentProvider === "payhere") {
+          const session = await startPayHereCheckout(heldBooking.id, heldBooking.managementToken, values.billingAddress, values.city);
+          return { kind: "payhere" as const, session, bookingToken: heldBooking.managementToken };
+        }
+        return { kind: "confirmed" as const, result: await checkoutSandbox(heldBooking.id, heldBooking.managementToken) };
       });
     },
     onSuccess: (data) => {
-      dispatch(setBooking(data.booking));
-      dispatch(setTicket(data.ticket));
+      if (data.kind === "payhere") {
+        dispatch(setNotice("Redirecting securely to PayHere Sandbox…"));
+        redirectToPayHere(data.session, data.bookingToken);
+        return;
+      }
+      dispatch(setBooking(data.result.booking));
+      dispatch(setTicket(data.result.ticket));
       dispatch(setNotice("Booking confirmed safely. Hold your reference tight."));
       void seatsQuery.refetch();
     },

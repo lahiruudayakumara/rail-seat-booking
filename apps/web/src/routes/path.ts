@@ -7,6 +7,7 @@ import SchedulesPage from "@/pages/main/schedules";
 import Main from "@/layouts/main";
 import AdminPage from "@/pages/admin";
 import AccountPage from "@/pages/main/account";
+import PaymentReturnPage, { PaymentCancelPage } from "@/pages/main/payment-return";
 
 export const router = createBrowserRouter([
   {
@@ -32,6 +33,14 @@ export const router = createBrowserRouter([
       {
         path: "account",
         Component: AccountPage,
+      },
+      {
+        path: "payment/return",
+        Component: PaymentReturnPage,
+      },
+      {
+        path: "payment/cancel",
+        Component: PaymentCancelPage,
       },
     ],
   },
