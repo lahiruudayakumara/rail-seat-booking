@@ -22,7 +22,52 @@ func NewHandler(service *Service, logger *slog.Logger) *Handler {
 
 func (h *Handler) Routes(r chi.Router) {
 	r.Post("/payments/sandbox", h.checkout)
+	r.With(httpmiddleware.RateLimit(20, time.Minute)).Post("/payments/payhere", h.startPayHere)
+	r.Get("/payments/{paymentId}", h.payHereStatus)
+	r.With(httpmiddleware.RateLimit(240, time.Minute)).Post("/webhooks/payhere", h.payHereWebhook)
 	r.With(httpmiddleware.RateLimit(120, time.Minute)).Post("/tickets/verify", h.verifyTicket)
+}
+
+func (h *Handler) startPayHere(w http.ResponseWriter, r *http.Request) {
+	var request PayHereCheckoutRequest
+	if err := httpx.DecodeJSON(w, r, &request); err != nil {
+		httpx.WriteError(w, r, h.logger, err)
+		return
+	}
+	result, err := h.service.StartPayHereCheckout(r.Context(), request, strings.TrimSpace(r.Header.Get("Idempotency-Key")))
+	if err != nil {
+		httpx.WriteError(w, r, h.logger, err)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusCreated, result)
+}
+
+func (h *Handler) payHereStatus(w http.ResponseWriter, r *http.Request) {
+	id, err := httpx.PathUUID(r, "paymentId")
+	if err != nil {
+		httpx.WriteError(w, r, h.logger, err)
+		return
+	}
+	token := strings.TrimSpace(strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer "))
+	result, err := h.service.PayHereStatus(r.Context(), id, token)
+	if err != nil {
+		httpx.WriteError(w, r, h.logger, err)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, result)
+}
+
+func (h *Handler) payHereWebhook(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, 64<<10)
+	if err := r.ParseForm(); err != nil {
+		httpx.WriteError(w, r, h.logger, err)
+		return
+	}
+	if err := h.service.HandlePayHereWebhook(r.Context(), r.PostForm, httpx.RequestID(r)); err != nil {
+		httpx.WriteError(w, r, h.logger, err)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
 }
 
 func (h *Handler) verifyTicket(w http.ResponseWriter, r *http.Request) {

@@ -35,8 +35,9 @@ func NewRouter(pool *pgxpool.Pool, logger *slog.Logger, cfg config.Config) http.
 	accessSigner := booking.NewAccessSigner(cfg.ManagementSecret, cfg.ManagementTTL)
 	bookingRepository := booking.NewRepository()
 	paymentProvider := payment.SandboxProvider{}
+	payHereProvider := payment.NewPayHereProvider(payment.PayHereConfig{MerchantID: cfg.PayHereMerchantID, Secret: cfg.PayHereSecret, Sandbox: cfg.PayHereSandbox, ReturnURL: cfg.PayHereReturnURL, CancelURL: cfg.PayHereCancelURL, NotifyURL: cfg.PayHereNotifyURL})
 	bookingHandler := booking.NewHandler(booking.NewService(pool, bookingRepository, accessSigner, payment.NewCancellationProcessor(paymentProvider), cfg.SeatHoldTTL), logger)
-	paymentHandler := payment.NewHandler(payment.NewService(pool, payment.NewRepository(), bookingRepository, accessSigner, payment.NewTicketSigner(cfg.ManagementSecret), paymentProvider), logger)
+	paymentHandler := payment.NewHandler(payment.NewService(pool, payment.NewRepository(), bookingRepository, accessSigner, payment.NewTicketSigner(cfg.ManagementSecret), paymentProvider, payHereProvider, cfg.PaymentPendingTTL), logger)
 	healthHandler := health.NewHandler(pool, logger, cfg.DatabaseTimeout)
 	docsHandler := apidocs.NewHandler(cfg.OpenAPIPath, logger)
 	adminHandler := admin.NewHandler(admin.NewService(admin.NewRepository(pool)), logger, cfg.AdminAPIKey)
