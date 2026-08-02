@@ -28,6 +28,14 @@ type Config struct {
 	AdminAPIKey         string
 	OutboxPollInterval  time.Duration
 	PassengerSessionTTL time.Duration
+	PaymentProvider     string
+	PaymentPendingTTL   time.Duration
+	PayHereMerchantID   string
+	PayHereSecret       string
+	PayHereSandbox      bool
+	PayHereReturnURL    string
+	PayHereCancelURL    string
+	PayHereNotifyURL    string
 }
 
 func Load() (Config, error) {
@@ -50,6 +58,14 @@ func Load() (Config, error) {
 		AdminAPIKey:         value("ADMIN_API_KEY", "local-development-admin-key-change-me"),
 		OutboxPollInterval:  duration("OUTBOX_POLL_INTERVAL", 2*time.Second),
 		PassengerSessionTTL: duration("PASSENGER_SESSION_TTL", 7*24*time.Hour),
+		PaymentProvider:     strings.ToLower(value("PAYMENT_PROVIDER", "sandbox")),
+		PaymentPendingTTL:   duration("PAYMENT_PENDING_TTL", 15*time.Minute),
+		PayHereMerchantID:   value("PAYHERE_MERCHANT_ID", ""),
+		PayHereSecret:       value("PAYHERE_MERCHANT_SECRET", ""),
+		PayHereSandbox:      boolValue("PAYHERE_SANDBOX", true),
+		PayHereReturnURL:    value("PAYHERE_RETURN_URL", "http://localhost:3000/payment/return"),
+		PayHereCancelURL:    value("PAYHERE_CANCEL_URL", "http://localhost:3000/payment/cancel"),
+		PayHereNotifyURL:    value("PAYHERE_NOTIFY_URL", "http://localhost:8080/api/v1/webhooks/payhere"),
 	}
 	if cfg.DatabaseURL == "" {
 		return Config{}, fmt.Errorf("DATABASE_URL is required")
@@ -62,6 +78,12 @@ func Load() (Config, error) {
 	}
 	if cfg.Environment == "production" && len(cfg.AdminAPIKey) < 32 {
 		return Config{}, fmt.Errorf("ADMIN_API_KEY must contain at least 32 characters in production")
+	}
+	if cfg.PaymentProvider != "sandbox" && cfg.PaymentProvider != "payhere" {
+		return Config{}, fmt.Errorf("PAYMENT_PROVIDER must be sandbox or payhere")
+	}
+	if cfg.PaymentProvider == "payhere" && (cfg.PayHereMerchantID == "" || cfg.PayHereSecret == "") {
+		return Config{}, fmt.Errorf("PAYHERE_MERCHANT_ID and PAYHERE_MERCHANT_SECRET are required when PAYMENT_PROVIDER=payhere")
 	}
 	return cfg, nil
 }
@@ -102,4 +124,15 @@ func int32Value(key string, fallback int32) int32 {
 		return fallback
 	}
 	return int32(parsed)
+}
+func boolValue(key string, fallback bool) bool {
+	raw := strings.ToLower(value(key, ""))
+	if raw == "" {
+		return fallback
+	}
+	parsed, err := strconv.ParseBool(raw)
+	if err != nil {
+		return fallback
+	}
+	return parsed
 }
