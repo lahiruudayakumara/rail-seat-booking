@@ -4,7 +4,7 @@ import axios from "axios";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import type { ApiError } from "@/types";
-import { cancelBooking, createBooking } from "../api";
+import { cancelBooking, checkoutSandbox, createBooking } from "../api";
 import { useAppDispatch, useAppSelector } from "../store";
 import {
   setBooking,
@@ -12,6 +12,7 @@ import {
   setQuote,
   setRunId,
   setSelectedSeat,
+  setTicket,
 } from "../store/slices/booking-slice";
 import { setSearched } from "../store/slices/search-slice";
 import { setNotice } from "../store/slices/ui-slice";
@@ -28,7 +29,7 @@ export type PassengerFormValues = z.infer<typeof passengerSchema>;
 
 export function useBookingFlow() {
   const dispatch = useAppDispatch();
-  const { selectedSeat, quote, hold, booking } = useAppSelector((state) => state.booking);
+  const { selectedSeat, quote, hold, booking, ticket } = useAppSelector((state) => state.booking);
   const { notice } = useAppSelector((state) => state.ui);
   const { runId, seatsQuery } = useSeatSelection();
   const { originId, destinationId } = useJourneySearch();
@@ -54,10 +55,14 @@ export function useBookingFlow() {
           email: values.email,
           phone: values.phone,
         },
+      }).then(async (heldBooking) => {
+        if (!heldBooking.managementToken) throw new Error("Booking payment token missing");
+        return checkoutSandbox(heldBooking.id, heldBooking.managementToken);
       });
     },
     onSuccess: (data) => {
-      dispatch(setBooking(data));
+      dispatch(setBooking(data.booking));
+      dispatch(setTicket(data.ticket));
       dispatch(setNotice("Booking confirmed safely. Hold your reference tight."));
       void seatsQuery.refetch();
     },
@@ -87,6 +92,7 @@ export function useBookingFlow() {
       dispatch(setSelectedSeat(undefined));
       dispatch(setQuote(undefined));
       dispatch(setHold(undefined));
+      dispatch(setTicket(undefined));
       dispatch(setRunId(""));
       dispatch(setSearched(false));
       dispatch(setNotice("Booking cancelled. You can search again whenever ready."));
@@ -101,6 +107,7 @@ export function useBookingFlow() {
     form,
     notice,
     booking,
+    ticket,
     selectedSeat,
     quote,
     bookingMutation,

@@ -135,7 +135,7 @@ paths:
       parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
       requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/CreateBookingRequest'}}}}
       responses:
-        '201': {description: Booking confirmed, headers: {Location: {schema: {type: string}}}, content: {application/json: {schema: {$ref: '#/components/schemas/Booking'}}}}
+        '201': {description: Held booking prepared for payment, headers: {Location: {schema: {type: string}}}, content: {application/json: {schema: {$ref: '#/components/schemas/Booking'}}}}
         '400': {$ref: '#/components/responses/BadRequest'}
         '404': {$ref: '#/components/responses/NotFound'}
         '409': {$ref: '#/components/responses/Conflict'}
@@ -163,6 +163,19 @@ paths:
         '400': {$ref: '#/components/responses/BadRequest'}
         '404': {$ref: '#/components/responses/NotFound'}
         '429': {$ref: '#/components/responses/TooManyRequests'}
+  /api/v1/payments/sandbox:
+    post:
+      tags: [Bookings]
+      operationId: checkoutSandboxPayment
+      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
+      description: Local-development payment adapter that atomically pays, confirms, issues a ticket, and queues notification delivery.
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/SandboxCheckoutRequest'}}}}
+      responses:
+        '201': {description: Paid booking and ticket, content: {application/json: {schema: {$ref: '#/components/schemas/CheckoutResult'}}}}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/Unprocessable'}
   /api/v1/bookings/{bookingId}/cancel:
     post:
       security: [{bearerAuth: []}]
@@ -316,6 +329,20 @@ components:
       properties:
         reference: {type: string, pattern: '^BK-[A-Z0-9]{8,16}$'}
         contact: {type: string, minLength: 8, maxLength: 254, description: Email address or E.164 phone used for the booking}
+    SandboxCheckoutRequest:
+      type: object
+      additionalProperties: false
+      required: [bookingId, bookingToken]
+      properties:
+        bookingId: {type: string, format: uuid}
+        bookingToken: {type: string}
+    CheckoutResult:
+      type: object
+      required: [payment, ticket, booking]
+      properties:
+        payment: {type: object, additionalProperties: true}
+        ticket: {type: object, required: [id, verificationCode, status], properties: {id: {type: string, format: uuid}, verificationCode: {type: string}, status: {type: string, enum: [ACTIVE, CANCELLED, USED]}}}
+        booking: {$ref: '#/components/schemas/Booking'}
     Booking:
       type: object
       required: [id, reference, status, trainRunId, seat, originStationId, destinationStationId, fare, createdAt]

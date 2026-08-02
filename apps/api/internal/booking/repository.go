@@ -57,8 +57,8 @@ func (r *Repository) LockHold(ctx context.Context, db database.DBTX, id uuid.UUI
 	err := db.QueryRow(ctx, `SELECT train_run_id,seat_id,origin_station_id,destination_station_id,fare_rule_id,origin_position,destination_position,fare_total_minor,fare_currency,fare_currency_scale,fare_breakdown,status,hold_expires_at FROM bookings WHERE id=$1 FOR UPDATE`, id).Scan(&q.TrainRunID, &q.SeatID, &q.OriginStationID, &q.DestinationStationID, &q.FareRuleID, &q.OriginPosition, &q.DestinationPosition, &q.AmountMinor, &q.Currency, &q.CurrencyScale, &q.Breakdown, &status, &expiresAt)
 	return q, status, expiresAt, err
 }
-func (r *Repository) ConfirmHold(ctx context.Context, db database.DBTX, id, passengerID uuid.UUID, reference string) error {
-	_, err := db.Exec(ctx, `UPDATE bookings SET reference=$2,passenger_id=$3,status='CONFIRMED',confirmed_at=now(),hold_expires_at=NULL,updated_at=now() WHERE id=$1`, id, reference, passengerID)
+func (r *Repository) PrepareHeldBooking(ctx context.Context, db database.DBTX, id, passengerID uuid.UUID, reference string) error {
+	_, err := db.Exec(ctx, `UPDATE bookings SET reference=$2,passenger_id=$3,updated_at=now() WHERE id=$1`, id, reference, passengerID)
 	return err
 }
 func (r *Repository) InsertAudit(ctx context.Context, db database.DBTX, eventID, aggregateID uuid.UUID, eventType, requestID string) error {

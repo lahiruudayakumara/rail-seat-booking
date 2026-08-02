@@ -51,6 +51,18 @@ export type BookingHold = {
   managementToken: string;
 };
 
+export type Ticket = {
+  id: string;
+  verificationCode: string;
+  status: "ACTIVE" | "CANCELLED" | "USED";
+};
+
+export type CheckoutResult = {
+  payment: { id: string; status: string; provider: string; providerReference: string };
+  ticket: Ticket;
+  booking: Booking;
+};
+
 export type Money = {
   amountMinor: number;
   currency: string;

@@ -118,10 +118,10 @@ func (s *Service) Create(ctx context.Context, request CreateRequest, idempotency
 	if err = s.repo.InsertPassenger(ctx, tx, passengerID, request.Passenger); err != nil {
 		return Booking{}, false, apperror.Wrap(err)
 	}
-	if err = s.repo.ConfirmHold(ctx, tx, bookingID, passengerID, bookingReference(bookingID)); err != nil {
+	if err = s.repo.PrepareHeldBooking(ctx, tx, bookingID, passengerID, bookingReference(bookingID)); err != nil {
 		return Booking{}, false, apperror.Wrap(err)
 	}
-	if err = s.repo.InsertAudit(ctx, tx, uuid.New(), bookingID, "BOOKING_CONFIRMED", requestID); err != nil {
+	if err = s.repo.InsertAudit(ctx, tx, uuid.New(), bookingID, "BOOKING_PENDING_PAYMENT", requestID); err != nil {
 		return Booking{}, false, apperror.Wrap(err)
 	}
 	if err = s.repo.AttachIdempotency(ctx, tx, keyHash, bookingID); err != nil {

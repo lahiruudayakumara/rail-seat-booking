@@ -64,7 +64,8 @@
     "sub": "Keep this reference safe",
     "referenceLabel": "BOOKING REFERENCE",
     "cancelButton": "Cancel booking",
-    "cancelling": "Cancelling…"
+    "cancelling": "Cancelling…",
+    "ticketCode": "Ticket verification code"
   },
   "lookup": {
     "title": "Lookup Booking Reference",

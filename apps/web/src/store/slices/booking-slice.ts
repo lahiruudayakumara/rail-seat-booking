@@ -1,5 +1,5 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
-import type { Booking, BookingHold, FareQuote, Seat } from "@/types";
+import type { Booking, BookingHold, FareQuote, Seat, Ticket } from "@/types";
 
 export interface BookingState {
   runId: string;
@@ -7,6 +7,7 @@ export interface BookingState {
   quote?: FareQuote;
   hold?: BookingHold;
   booking?: Booking;
+  ticket?: Ticket;
 }
 
 const initialState: BookingState = {
@@ -15,6 +16,7 @@ const initialState: BookingState = {
   quote: undefined,
   hold: undefined,
   booking: undefined,
+  ticket: undefined,
 };
 
 export const bookingSlice = createSlice({
@@ -36,6 +38,9 @@ export const bookingSlice = createSlice({
     setBooking: (state, action: PayloadAction<Booking | undefined>) => {
       state.booking = action.payload;
     },
+    setTicket: (state, action: PayloadAction<Ticket | undefined>) => {
+      state.ticket = action.payload;
+    },
     resetBookingSelection: (state) => {
       state.runId = "";
       state.selectedSeat = undefined;
@@ -56,6 +61,7 @@ export const {
   setQuote,
   setHold,
   setBooking,
+  setTicket,
   resetBookingSelection,
   clearSelectedSeatAndQuote,
 } = bookingSlice.actions;

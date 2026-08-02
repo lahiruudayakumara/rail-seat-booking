@@ -5,7 +5,7 @@ import { formatMoney } from "@/utils";
 
 export function BookingConfirmation() {
   const { t } = useTranslation();
-  const { booking, cancelMutation } = useBookingFlow();
+  const { booking, ticket, cancelMutation } = useBookingFlow();
 
   if (!booking) return null;
 
@@ -21,6 +21,14 @@ export function BookingConfirmation() {
       </h2>
       <p className="mt-2 text-sm text-stone-600">{t("confirmation.sub")}</p>
       <strong className="reference">{booking.reference}</strong>
+      {ticket && (
+        <div className="mt-4 rounded-lg border border-stone-300 bg-white p-3">
+          <span className="block text-xs font-bold uppercase text-stone-500">
+            {t("confirmation.ticketCode")}
+          </span>
+          <code className="break-all text-xs text-stone-800">{ticket.verificationCode}</code>
+        </div>
+      )}
 
       <div className="mt-6 flex flex-wrap justify-center gap-3">
         <span className="status-pill">

@@ -1,5 +1,5 @@
 import { api } from "./api-instance";
-import type { Booking, BookingHold, CreateBookingRequest, FareQuote, Seat } from "@/types";
+import type { Booking, BookingHold, CheckoutResult, CreateBookingRequest, FareQuote, Seat } from "@/types";
 
 export const bookApi = {
   getAvailableSeats: async (runId: string, originId: string, destinationId: string) => {
@@ -44,6 +44,15 @@ export const bookApi = {
     return res.data;
   },
 
+  checkoutSandbox: async (bookingId: string, bookingToken: string) => {
+    const res = await api.post<CheckoutResult>(
+      "/api/v1/payments/sandbox",
+      { bookingId, bookingToken },
+      { headers: { "Idempotency-Key": crypto.randomUUID() } },
+    );
+    return res.data;
+  },
+
   cancelBooking: async (bookingId: string, managementToken: string) => {
     const res = await api.post<Booking>(`/api/v1/bookings/${bookingId}/cancel`, {}, {
       headers: { Authorization: `Bearer ${managementToken}` },
@@ -83,6 +92,10 @@ export function createHold(fareQuoteId: string) {
 
 export function createBooking(body: CreateBookingRequest) {
   return bookApi.createBooking(body);
+}
+
+export function checkoutSandbox(bookingId: string, bookingToken: string) {
+  return bookApi.checkoutSandbox(bookingId, bookingToken);
 }
 
 export function cancelBooking(bookingId: string, managementToken: string) {

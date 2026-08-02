@@ -17,6 +17,7 @@ import (
 	"github.com/lahiruudayakumara/rail-seat-booking/apps/api/internal/health"
 	"github.com/lahiruudayakumara/rail-seat-booking/apps/api/internal/httpmiddleware"
 	"github.com/lahiruudayakumara/rail-seat-booking/apps/api/internal/journey"
+	"github.com/lahiruudayakumara/rail-seat-booking/apps/api/internal/payment"
 	"github.com/lahiruudayakumara/rail-seat-booking/apps/api/internal/route"
 	"github.com/lahiruudayakumara/rail-seat-booking/apps/api/internal/station"
 	"github.com/lahiruudayakumara/rail-seat-booking/apps/api/internal/trainrun"
@@ -30,7 +31,9 @@ func NewRouter(pool *pgxpool.Pool, logger *slog.Logger, cfg config.Config) http.
 	availabilityHandler := availability.NewHandler(availability.NewService(availability.NewRepository(pool), journeyService), logger)
 	fareHandler := fare.NewHandler(fare.NewService(fare.NewRepository(pool), journeyService, 5*time.Minute), logger)
 	accessSigner := booking.NewAccessSigner(cfg.ManagementSecret, cfg.ManagementTTL)
-	bookingHandler := booking.NewHandler(booking.NewService(pool, booking.NewRepository(), accessSigner, cfg.SeatHoldTTL), logger)
+	bookingRepository := booking.NewRepository()
+	bookingHandler := booking.NewHandler(booking.NewService(pool, bookingRepository, accessSigner, cfg.SeatHoldTTL), logger)
+	paymentHandler := payment.NewHandler(payment.NewService(pool, payment.NewRepository(), bookingRepository, accessSigner, payment.NewTicketSigner(cfg.ManagementSecret), payment.SandboxProvider{}), logger)
 	healthHandler := health.NewHandler(pool, logger, cfg.DatabaseTimeout)
 	docsHandler := apidocs.NewHandler(cfg.OpenAPIPath, logger)
 
@@ -48,6 +51,7 @@ func NewRouter(pool *pgxpool.Pool, logger *slog.Logger, cfg config.Config) http.
 		availabilityHandler.Routes(r)
 		fareHandler.Routes(r)
 		bookingHandler.Routes(r)
+		paymentHandler.Routes(r)
 	})
 	return router
 }
