@@ -9,6 +9,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/lahiruudayakumara/rail-seat-booking/apps/api/internal/admin"
 	"github.com/lahiruudayakumara/rail-seat-booking/apps/api/internal/apidocs"
 	"github.com/lahiruudayakumara/rail-seat-booking/apps/api/internal/availability"
 	"github.com/lahiruudayakumara/rail-seat-booking/apps/api/internal/booking"
@@ -37,6 +38,7 @@ func NewRouter(pool *pgxpool.Pool, logger *slog.Logger, cfg config.Config) http.
 	paymentHandler := payment.NewHandler(payment.NewService(pool, payment.NewRepository(), bookingRepository, accessSigner, payment.NewTicketSigner(cfg.ManagementSecret), paymentProvider), logger)
 	healthHandler := health.NewHandler(pool, logger, cfg.DatabaseTimeout)
 	docsHandler := apidocs.NewHandler(cfg.OpenAPIPath, logger)
+	adminHandler := admin.NewHandler(admin.NewService(admin.NewRepository(pool)), logger, cfg.AdminAPIKey)
 
 	router := chi.NewRouter()
 	router.Use(chimiddleware.RequestID, chimiddleware.RealIP, chimiddleware.Recoverer)
@@ -53,6 +55,7 @@ func NewRouter(pool *pgxpool.Pool, logger *slog.Logger, cfg config.Config) http.
 		fareHandler.Routes(r)
 		bookingHandler.Routes(r)
 		paymentHandler.Routes(r)
+		adminHandler.Routes(r)
 	})
 	return router
 }

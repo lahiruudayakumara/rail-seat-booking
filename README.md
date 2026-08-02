@@ -9,13 +9,16 @@ Whole-journey allocation wastes capacity. This system assigns every route statio
 ## Main features
 
 - Configurable routes, ordered stations, distances, trains, runs, coaches, layouts, seats, and fares
-- Segment-aware availability, fare quotes, booking lookup, cancellation, references, and audit events
-- Idempotent booking creation and database-safe concurrency
+- Segment-aware availability, expiring seat holds, fare quotes, verified booking lookup, cancellation, references, and audit events
+- Idempotent booking and sandbox payment flows with database-safe concurrency
+- Ticket credentials and privacy-preserving ticket verification
+- Transactional full refunds, ticket cancellation, and notification outbox events
+- Protected train-run dashboards for segment utilization, revenue, refunds, and delivery health
 - Responsive, accessible booking flow and an OpenAPI 3.1 contract
 - Interactive coach-by-coach seat map with conflict recovery
 - UTC persistence with `Asia/Colombo` schedule presentation
 
-The initial scope uses direct confirmation without payment. `HELD` and `CONFIRMED` block inventory; `CANCELLED`, `EXPIRED`, and `COMPLETED` do not.
+`HELD` and `CONFIRMED` block inventory; `CANCELLED`, `EXPIRED`, and `COMPLETED` do not. A booking is confirmed only after the configured payment provider succeeds; local development uses an explicit sandbox provider.
 
 ## Technology
 
@@ -30,7 +33,7 @@ flowchart LR
   A -->|"pgx / parameterized SQL"| P[("PostgreSQL")]
 ```
 
-The API validates and orchestrates; PostgreSQL owns durable integrity. Optional reverse proxy, Redis, queue, notifications, object storage and monitoring are future production components—not initial dependencies. See [system architecture](docs/system-architecture.md), [database design](docs/database-design.md), and [ADRs](docs/adr/).
+The API validates and orchestrates; PostgreSQL owns durable integrity and a transactional outbox records delivery work. External payment and notification providers remain replaceable boundaries. See [system architecture](docs/system-architecture.md), [database design](docs/database-design.md), and [ADRs](docs/adr/).
 
 ## Local setup
 
@@ -98,9 +101,9 @@ The hardest part is not displaying availability but committing it correctly afte
 
 Secure defaults include parameterized SQL, strict validation, least-privilege DB roles, TLS in production, limited CORS, rate limits, redacted structured logs, protected booking references and append-only audits. See [security](docs/security.md), [observability](docs/observability.md), [testing](docs/testing-strategy.md), [CI/CD](docs/ci-cd.md), and [deployment](docs/deployment.md).
 
-## Limitations and future work
+## Limitations and production integrations
 
-Initial scope excludes payment capture, authentication implementation, waitlists, notifications, real-time push, multi-seat/group atomic booking, live railway feeds, refunds and production cloud deployment. The implemented extra-credit feature is a responsive seat-map visualization with explicit 409 conflict recovery that refreshes seats while preserving passenger form data. Candidate future extras include holds, admin/revenue analytics, waitlists, WebSocket/SSE updates, multilingual UX and verified official schedules/fares.
+The repository ships sandbox payment/refund behavior and durable notification events so the complete local journey is testable without vendor accounts. Launch still requires selected payment and email/SMS providers, department identity/role integration, HTTPS ingress, monitoring destinations, backups, verified official schedules/fares, and the corresponding credentials. Those external services are intentionally not impersonated or hardcoded.
 
 ## License
 

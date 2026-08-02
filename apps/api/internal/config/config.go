@@ -25,6 +25,7 @@ type Config struct {
 	ManagementSecret  string
 	ManagementTTL     time.Duration
 	SeatHoldTTL       time.Duration
+	AdminAPIKey       string
 }
 
 func Load() (Config, error) {
@@ -44,6 +45,7 @@ func Load() (Config, error) {
 		ManagementSecret:  value("MANAGEMENT_TOKEN_SECRET", "local-development-management-secret-change-me"),
 		ManagementTTL:     duration("MANAGEMENT_TOKEN_TTL", 30*time.Minute),
 		SeatHoldTTL:       duration("SEAT_HOLD_TTL", 10*time.Minute),
+		AdminAPIKey:       value("ADMIN_API_KEY", "local-development-admin-key-change-me"),
 	}
 	if cfg.DatabaseURL == "" {
 		return Config{}, fmt.Errorf("DATABASE_URL is required")
@@ -53,6 +55,9 @@ func Load() (Config, error) {
 	}
 	if cfg.Environment == "production" && len(cfg.ManagementSecret) < 32 {
 		return Config{}, fmt.Errorf("MANAGEMENT_TOKEN_SECRET must contain at least 32 characters in production")
+	}
+	if cfg.Environment == "production" && len(cfg.AdminAPIKey) < 32 {
+		return Config{}, fmt.Errorf("ADMIN_API_KEY must contain at least 32 characters in production")
 	}
 	return cfg, nil
 }

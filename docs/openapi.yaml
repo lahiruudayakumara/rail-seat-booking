@@ -200,9 +200,20 @@ paths:
         '404': {$ref: '#/components/responses/NotFound'}
         '409': {$ref: '#/components/responses/Conflict'}
         '422': {$ref: '#/components/responses/Unprocessable'}
+  /api/v1/admin/train-runs/{trainRunId}/dashboard:
+    get:
+      tags: [Administration]
+      operationId: getTrainRunDashboard
+      security: [{adminAuth: []}]
+      parameters: [{$ref: '#/components/parameters/TrainRunId'}]
+      responses:
+        '200': {description: Segment utilization and financial dashboard, content: {application/json: {schema: {$ref: '#/components/schemas/AdminDashboard'}}}}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '404': {$ref: '#/components/responses/NotFound'}
 components:
   securitySchemes:
     bearerAuth: {type: http, scheme: bearer, bearerFormat: BookingManagementToken, description: Short-lived signed token issued after contact verification}
+    adminAuth: {type: http, scheme: bearer, bearerFormat: AdminAPIKey, description: Server-managed department administrator credential}
   parameters:
     RouteId: {name: routeId, in: path, required: true, schema: {type: string, format: uuid}}
     TrainRunId: {name: trainRunId, in: path, required: true, schema: {type: string, format: uuid}}
@@ -399,6 +410,22 @@ components:
         status: {type: string, enum: [PENDING, SUCCEEDED, FAILED]}
         amountMinor: {type: integer, format: int64}
         currency: {type: string, pattern: '^[A-Z]{3}$'}
+    AdminDashboard:
+      type: object
+      required: [trainRunId, sellableSeatSegments, occupiedSeatSegments, segmentUtilizationPercent, confirmedBookings, cancelledBookings, heldBookings, grossRevenueMinor, refundedMinor, netRevenueMinor, currency, pendingDeliveries]
+      properties:
+        trainRunId: {type: string, format: uuid}
+        sellableSeatSegments: {type: integer, format: int64}
+        occupiedSeatSegments: {type: integer, format: int64}
+        segmentUtilizationPercent: {type: number, format: double}
+        confirmedBookings: {type: integer, format: int64}
+        cancelledBookings: {type: integer, format: int64}
+        heldBookings: {type: integer, format: int64}
+        grossRevenueMinor: {type: integer, format: int64}
+        refundedMinor: {type: integer, format: int64}
+        netRevenueMinor: {type: integer, format: int64}
+        currency: {type: string}
+        pendingDeliveries: {type: integer, format: int64}
     CancelBookingRequest:
       type: object
       additionalProperties: false

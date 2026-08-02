@@ -24,6 +24,7 @@ Public search/quote/create endpoints are initially anonymous and rate-limited. U
 | `POST /api/v1/booking-holds` | Atomically hold a quoted seat/segment | 201 hold and expiry | 400,409,422,429 | Public/rate-limited; short-lived signed hold token |
 | `POST /api/v1/payments/sandbox` | Complete local sandbox payment and issue ticket | 201 checkout result | 400,401,404,409,422 | Hold token; idempotency key required |
 | `POST /api/v1/tickets/verify` | Validate a ticket without exposing passenger data | 200 verification | 404,422,429 | Secret ticket credential; rate limited |
+| `GET /api/v1/admin/train-runs/{id}/dashboard` | Segment utilization, booking, revenue, refund and delivery metrics | 200 dashboard | 401,404 | Administrator bearer credential |
 | `POST /api/v1/bookings` | Convert a valid hold into a confirmed booking | 201 booking; replay may be 200/201 with replay header | 400,401,404,409,422,503 | Hold token; **Idempotency-Key required** |
 | `POST /api/v1/bookings/access` | Verify reference plus booking email/phone | 200 booking and short-lived management token | 400,404,429 | Public/rate-limited; contact verification required |
 | `POST /api/v1/bookings/{bookingId}/cancel` | Optional `{reason}` | 200 updated booking | 400,401/403,404,409,422 | Owner/support; repeat-safe, key recommended |
