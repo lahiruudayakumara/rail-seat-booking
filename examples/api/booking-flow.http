@@ -11,6 +11,10 @@
 GET {{baseUrl}}/api/v1/train-runs/{{trainRunId}}/available-seats?originStationId={{originStationId}}&destinationStationId={{destinationStationId}}
 Accept: application/json
 
+### Full seat map with segment availability status
+GET {{baseUrl}}/api/v1/train-runs/{{trainRunId}}/seat-map?originStationId={{originStationId}}&destinationStationId={{destinationStationId}}
+Accept: application/json
+
 ### Create fare quote
 POST {{baseUrl}}/api/v1/fare-quotes
 Content-Type: application/json

@@ -36,3 +36,12 @@ func TestCORS(t *testing.T) {
 		}
 	}
 }
+
+func TestSeatMapRouteRejectsInvalidRunID(t *testing.T) {
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/train-runs/not-a-uuid/seat-map?originStationId=20000000-0000-4000-8000-000000000001&destinationStationId=20000000-0000-4000-8000-000000000005", nil)
+	recorder := httptest.NewRecorder()
+	testRouter().ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusBadRequest {
+		t.Fatalf("got %d; want %d", recorder.Code, http.StatusBadRequest)
+	}
+}

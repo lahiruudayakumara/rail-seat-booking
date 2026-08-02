@@ -19,6 +19,7 @@ Public search/quote/create endpoints are initially anonymous and rate-limited. U
 | `GET /api/v1/train-runs` | Filters `travelDate` required, `routeId`,`originStationId`,`destinationStationId`,`cursor`,`limit`; endpoints must be supplied together and ordered | 200 run page | 400,404 | Public; safe |
 | `GET /api/v1/train-runs/{trainRunId}` | Run with route/train summary | 200 run | 400,404 | Public; safe |
 | `GET /api/v1/train-runs/{trainRunId}/available-seats` | Required origin/destination UUIDs; optional `coachClass` | 200 available seat list | 400,404 | Public/rate-limited; snapshot only |
+| `GET /api/v1/train-runs/{trainRunId}/seat-map` | Required origin/destination UUIDs; optional `coachClass` | 200 all reserved seats with segment status | 400,404,422 | Public/rate-limited; snapshot only |
 | `POST /api/v1/fare-quotes` | Quote run, seat and endpoints | 201 quote | 400,404,422 | Public/rate-limited; semantically idempotent but creates quote ID |
 | `POST /api/v1/bookings` | Confirm quote/seat/passenger | 201 booking; replay may be 200/201 with replay header | 400,404,409,422,503 | Public; **Idempotency-Key required** |
 | `GET /api/v1/bookings/{bookingId}` | Booking detail | 200 | 400,401/403,404 | Authenticated owner/support; safe |
@@ -43,6 +44,10 @@ Availability:
   }]
 }
 ```
+
+The seat-map response has the same envelope but includes every reserved seat and an
+`availabilityStatus` of `AVAILABLE` or `BOOKED`. Status is calculated only for the
+requested half-open segment, so a seat booked on an adjacent leg remains available.
 
 Quote request/response:
 

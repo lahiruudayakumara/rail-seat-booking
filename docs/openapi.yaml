@@ -103,6 +103,21 @@ paths:
         '400': {$ref: '#/components/responses/BadRequest'}
         '404': {$ref: '#/components/responses/NotFound'}
         '422': {$ref: '#/components/responses/Unprocessable'}
+  /api/v1/train-runs/{trainRunId}/seat-map:
+    get:
+      tags: [Availability]
+      operationId: getSeatMap
+      description: Returns every active reserved seat with availability derived for the requested half-open journey segment.
+      parameters:
+        - {$ref: '#/components/parameters/TrainRunId'}
+        - {$ref: '#/components/parameters/OriginStationId'}
+        - {$ref: '#/components/parameters/DestinationStationId'}
+        - {name: coachClass, in: query, schema: {type: string, maxLength: 32}}
+      responses:
+        '200': {description: Segment seat map snapshot, content: {application/json: {schema: {$ref: '#/components/schemas/SeatMapResponse'}}}}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '422': {$ref: '#/components/responses/Unprocessable'}
   /api/v1/fare-quotes:
     post:
       tags: [Fares]
@@ -231,6 +246,13 @@ components:
         coachCode: {type: string, example: R1}
         coachClass: {type: string, example: FIRST}
         attributes: {type: array, items: {type: string}, example: [WINDOW]}
+    SeatMapItem:
+      allOf:
+        - {$ref: '#/components/schemas/Seat'}
+        - type: object
+          required: [availabilityStatus]
+          properties:
+            availabilityStatus: {type: string, enum: [AVAILABLE, BOOKED]}
     Money:
       type: object
       required: [amountMinor, currency, currencyScale]
@@ -298,6 +320,14 @@ components:
         originStationId: {type: string, format: uuid}
         destinationStationId: {type: string, format: uuid}
         items: {type: array, items: {$ref: '#/components/schemas/Seat'}}
+    SeatMapResponse:
+      type: object
+      required: [trainRunId, originStationId, destinationStationId, items]
+      properties:
+        trainRunId: {type: string, format: uuid}
+        originStationId: {type: string, format: uuid}
+        destinationStationId: {type: string, format: uuid}
+        items: {type: array, items: {$ref: '#/components/schemas/SeatMapItem'}}
     RoutePage: {type: object, required: [items, page], properties: {items: {type: array, items: {$ref: '#/components/schemas/Route'}}, page: {$ref: '#/components/schemas/PageInfo'}}}
     StationPage: {type: object, required: [items, page], properties: {items: {type: array, items: {$ref: '#/components/schemas/Station'}}, page: {$ref: '#/components/schemas/PageInfo'}}}
     TrainRunPage: {type: object, required: [items, page], properties: {items: {type: array, items: {$ref: '#/components/schemas/TrainRun'}}, page: {$ref: '#/components/schemas/PageInfo'}}}
