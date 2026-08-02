@@ -10,6 +10,7 @@ Whole-journey allocation wastes capacity. This system assigns every route statio
 
 - Configurable routes, ordered stations, distances, trains, runs, coaches, layouts, seats, and fares
 - Segment-aware availability, expiring seat holds, fare quotes, verified booking lookup, cancellation, references, and audit events
+- Optional passenger registration/login with account-owned booking history while retaining fast guest checkout
 - Idempotent booking and sandbox payment flows with database-safe concurrency
 - Ticket credentials and privacy-preserving ticket verification
 - Transactional full refunds, ticket cancellation, and retrying notification outbox delivery
@@ -61,6 +62,8 @@ Docker Compose waits for PostgreSQL, applies Goose migrations, loads idempotent 
 Environment values are documented in `.env.example` using safe local placeholders only. Secrets must never be committed. Useful commands are `make verify`, `make smoke`, `make integration`, `make seed`, `make logs`, `make down`, and `make reset`.
 
 For local administrator testing, open `/admin` and use the `ADMIN_API_KEY` value from `.env`. The browser retains this credential only in `sessionStorage`; signing out or closing the browser session removes it. Production must replace the local placeholder with a strong credential supplied through the deployment secret manager.
+
+Passenger accounts are optional. Guests can complete the same reservation flow with a name and email or phone, then manage the booking through reference verification. Registered passengers use `/account`; authenticated checkout stores the journey in private booking history. Passenger sessions use revocable random server-side tokens delivered only through HTTP-only SameSite cookies, and passwords are bcrypt-hashed.
 
 ## API and behavior
 

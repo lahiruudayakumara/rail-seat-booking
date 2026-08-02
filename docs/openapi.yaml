@@ -15,6 +15,8 @@ tags:
   - {name: Availability}
   - {name: Fares}
   - {name: Bookings}
+  - {name: Passenger accounts}
+  - {name: Administration}
 paths:
   /health:
     get:
@@ -141,6 +143,49 @@ paths:
         '409': {$ref: '#/components/responses/Conflict'}
         '422': {$ref: '#/components/responses/Unprocessable'}
         '503': {$ref: '#/components/responses/ServiceUnavailable'}
+  /api/v1/passenger/register:
+    post:
+      tags: [Passenger accounts]
+      operationId: registerPassenger
+      description: Creates an optional passenger account and starts an HTTP-only cookie session. Guest checkout remains available.
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/PassengerRegistration'}}}}
+      responses:
+        '201': {description: Passenger account created, content: {application/json: {schema: {$ref: '#/components/schemas/PassengerAccount'}}}}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '429': {$ref: '#/components/responses/TooManyRequests'}
+  /api/v1/passenger/login:
+    post:
+      tags: [Passenger accounts]
+      operationId: loginPassenger
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/PassengerLogin'}}}}
+      responses:
+        '200': {description: Signed-in passenger, content: {application/json: {schema: {$ref: '#/components/schemas/PassengerAccount'}}}}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '429': {$ref: '#/components/responses/TooManyRequests'}
+  /api/v1/passenger/logout:
+    post:
+      tags: [Passenger accounts]
+      operationId: logoutPassenger
+      responses:
+        '204': {description: Session revoked and cookie cleared}
+  /api/v1/passenger/me:
+    get:
+      tags: [Passenger accounts]
+      operationId: getCurrentPassenger
+      security: [{passengerCookie: []}]
+      responses:
+        '200': {description: Current passenger, content: {application/json: {schema: {$ref: '#/components/schemas/PassengerAccount'}}}}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+  /api/v1/passenger/bookings:
+    get:
+      tags: [Passenger accounts, Bookings]
+      operationId: listPassengerBookings
+      security: [{passengerCookie: []}]
+      responses:
+        '200': {description: Account-owned bookings in newest-first order, content: {application/json: {schema: {$ref: '#/components/schemas/BookingPage'}}}}
+        '401': {$ref: '#/components/responses/Unauthorized'}
   /api/v1/booking-holds:
     post:
       tags: [Bookings]
@@ -189,7 +234,7 @@ paths:
         '429': {$ref: '#/components/responses/TooManyRequests'}
   /api/v1/bookings/{bookingId}/cancel:
     post:
-      security: [{bearerAuth: []}]
+      security: [{bearerAuth: []}, {passengerCookie: []}]
       tags: [Bookings]
       operationId: cancelBooking
       parameters: [{$ref: '#/components/parameters/BookingId'}, {$ref: '#/components/parameters/OptionalIdempotencyKey'}]
@@ -214,6 +259,7 @@ components:
   securitySchemes:
     bearerAuth: {type: http, scheme: bearer, bearerFormat: BookingManagementToken, description: Short-lived signed token issued after contact verification}
     adminAuth: {type: http, scheme: bearer, bearerFormat: AdminAPIKey, description: Server-managed department administrator credential}
+    passengerCookie: {type: apiKey, in: cookie, name: rail_passenger_session, description: Opaque revocable passenger session stored in an HTTP-only SameSite cookie}
   parameters:
     RouteId: {name: routeId, in: path, required: true, schema: {type: string, format: uuid}}
     TrainRunId: {name: trainRunId, in: path, required: true, schema: {type: string, format: uuid}}
@@ -317,6 +363,31 @@ components:
       required: [fullName]
       properties: {fullName: {type: string, minLength: 1, maxLength: 120}, email: {type: string, format: email, maxLength: 254}, phone: {type: string, pattern: '^\+[1-9]\d{7,14}$'}}
       anyOf: [{required: [email]}, {required: [phone]}]
+    PassengerRegistration:
+      type: object
+      additionalProperties: false
+      required: [fullName, email, password]
+      properties:
+        fullName: {type: string, minLength: 2, maxLength: 120}
+        email: {type: string, format: email, maxLength: 254}
+        phone: {type: string, pattern: '^\+[1-9]\d{7,14}$'}
+        password: {type: string, minLength: 10, maxLength: 72, format: password}
+    PassengerLogin:
+      type: object
+      additionalProperties: false
+      required: [email, password]
+      properties:
+        email: {type: string, format: email, maxLength: 254}
+        password: {type: string, minLength: 1, maxLength: 72, format: password}
+    PassengerAccount:
+      type: object
+      required: [id, fullName, email, createdAt]
+      properties:
+        id: {type: string, format: uuid}
+        fullName: {type: string}
+        email: {type: string, format: email}
+        phone: {type: string}
+        createdAt: {type: string, format: date-time}
     CreateBookingRequest:
       type: object
       additionalProperties: false
@@ -402,6 +473,11 @@ components:
         cancelledAt: {type: [string, 'null'], format: date-time}
         managementToken: {type: string, description: Short-lived opaque token for managing this booking}
         refund: {$ref: '#/components/schemas/RefundSummary'}
+    BookingPage:
+      type: object
+      required: [items]
+      properties:
+        items: {type: array, items: {$ref: '#/components/schemas/Booking'}}
     RefundSummary:
       type: object
       required: [id, status, amountMinor, currency]

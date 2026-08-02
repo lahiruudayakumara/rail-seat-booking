@@ -26,6 +26,7 @@ apps/api/
     ├── seat/                    # Shared seat representation
     ├── availability/            # Segment-specific seat search
     ├── fare/                    # Fare calculation and quote persistence
+    ├── passengerauth/           # Optional accounts and revocable sessions
     └── booking/                 # Booking lifecycle and transaction boundary
 ```
 
@@ -74,6 +75,8 @@ The half-open interval permits adjacent bookings to share the physical seat. For
 PostgreSQL error `23P01` is translated to `409 SEAT_NO_LONGER_AVAILABLE`. This remains correct across goroutines, processes, and multiple API replicas. The integration test starts concurrent transactions and asserts that exactly one overlapping booking succeeds.
 
 Cancellation locks the booking row, applies an idempotent state transition, and writes its audit event in the same transaction.
+
+Guest and registered checkout share the same booking invariant. A guest passenger row has no account owner and is managed through contact verification plus a short-lived booking-management token. A signed-in checkout copies the trusted account profile into the passenger snapshot and records `account_id`; history and cancellation then enforce that ownership. Account sessions are random opaque values, hashed before persistence, revocable, expiring, and transported in HTTP-only SameSite cookies.
 
 ## Runtime design
 
