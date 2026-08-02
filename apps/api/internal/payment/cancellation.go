@@ -22,9 +22,9 @@ func NewCancellationProcessor(provider Provider) *CancellationProcessor {
 
 func (p *CancellationProcessor) Process(ctx context.Context, db database.DBTX, bookingID uuid.UUID, reason, requestID string) (*booking.RefundSummary, error) {
 	var paymentID uuid.UUID
-	var providerReference, status, currency string
+	var provider, providerReference, status, currency string
 	var amountMinor int64
-	err := db.QueryRow(ctx, `SELECT id,provider_reference,status,amount_minor,currency FROM payments WHERE booking_id=$1 ORDER BY created_at DESC LIMIT 1 FOR UPDATE`, bookingID).Scan(&paymentID, &providerReference, &status, &amountMinor, &currency)
+	err := db.QueryRow(ctx, `SELECT id,provider,provider_reference,status,amount_minor,currency FROM payments WHERE booking_id=$1 ORDER BY created_at DESC LIMIT 1 FOR UPDATE`, bookingID).Scan(&paymentID, &provider, &providerReference, &status, &amountMinor, &currency)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
 	}
@@ -33,6 +33,9 @@ func (p *CancellationProcessor) Process(ctx context.Context, db database.DBTX, b
 	}
 	if status != "PAID" {
 		return nil, nil
+	}
+	if provider == "PAYHERE" {
+		return nil, apperror.New(501, "PAYHERE_REFUND_NOT_CONFIGURED", "PayHere refunds require Refund API credentials and are not enabled yet.", nil)
 	}
 	refundID := uuid.New()
 	providerResult, err := p.provider.Refund(ctx, refundID, providerReference, amountMinor, currency)

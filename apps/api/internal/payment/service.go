@@ -96,6 +96,14 @@ func (s *Service) StartPayHereCheckout(ctx context.Context, request PayHereCheck
 	if payable.Email == "" || payable.Phone == "" {
 		return PayHereCheckoutResponse{}, apperror.Validation("passenger", "PayHere requires both an email address and phone number.")
 	}
+	if existing, findErr := s.repo.FindPendingPayHereByBooking(ctx, tx, request.BookingID); findErr == nil {
+		if err = tx.Commit(ctx); err != nil {
+			return PayHereCheckoutResponse{}, apperror.Wrap(err)
+		}
+		return s.payHereCheckoutResponse(existing, request)
+	} else if !errors.Is(findErr, pgx.ErrNoRows) {
+		return PayHereCheckoutResponse{}, apperror.Wrap(findErr)
+	}
 	paymentID := uuid.New()
 	expiresAt := time.Now().Add(s.paymentPendingTTL)
 	record = payHereCheckoutRecord{PaymentID: paymentID, BookingID: request.BookingID, Status: "PENDING", BookingStatus: "HELD", AmountMinor: payable.AmountMinor, Currency: payable.Currency, ExpiresAt: expiresAt, FullName: payable.FullName, Email: payable.Email, Phone: payable.Phone}

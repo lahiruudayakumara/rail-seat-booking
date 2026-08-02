@@ -63,6 +63,12 @@ func (r *Repository) FindPayHereCheckoutByKey(ctx context.Context, db database.D
 	return item, err
 }
 
+func (r *Repository) FindPendingPayHereByBooking(ctx context.Context, db database.DBTX, bookingID uuid.UUID) (payHereCheckoutRecord, error) {
+	var item payHereCheckoutRecord
+	err := db.QueryRow(ctx, `SELECT pay.id,pay.booking_id,pay.status,b.status,pay.amount_minor,pay.currency,b.hold_expires_at,p.full_name,COALESCE(p.email_normalized,''),COALESCE(p.phone_e164,'') FROM payments pay JOIN bookings b ON b.id=pay.booking_id JOIN passengers p ON p.id=b.passenger_id WHERE pay.provider='PAYHERE' AND pay.booking_id=$1 AND pay.status='PENDING'`, bookingID).Scan(&item.PaymentID, &item.BookingID, &item.Status, &item.BookingStatus, &item.AmountMinor, &item.Currency, &item.ExpiresAt, &item.FullName, &item.Email, &item.Phone)
+	return item, err
+}
+
 func (r *Repository) InsertPayHerePending(ctx context.Context, db database.DBTX, paymentID, bookingID uuid.UUID, amountMinor int64, currency, keyHash string, expiresAt time.Time) error {
 	if _, err := db.Exec(ctx, `INSERT INTO payments(id,booking_id,provider,provider_reference,status,amount_minor,currency,idempotency_key_hash) VALUES($1,$2,'PAYHERE',$3,'PENDING',$4,$5,$6)`, paymentID, bookingID, paymentID.String(), amountMinor, currency, keyHash); err != nil {
 		return err
