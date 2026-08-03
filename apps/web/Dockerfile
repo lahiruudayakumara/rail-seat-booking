@@ -1,5 +1,5 @@
 # Development stage with hot-reloading support
-FROM node:24-alpine AS dev
+FROM node:26-alpine AS dev
 RUN corepack enable
 WORKDIR /src
 
