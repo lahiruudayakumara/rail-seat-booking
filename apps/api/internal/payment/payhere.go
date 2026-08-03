@@ -1,13 +1,16 @@
 package payment
 
 import (
+	"context"
 	"crypto/md5" // #nosec G501 -- PayHere mandates MD5 for its legacy checkout signature protocol.
 	"crypto/subtle"
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -26,7 +29,10 @@ type PayHereConfig struct {
 	NotifyURL  string
 }
 
-type PayHereProvider struct{ config PayHereConfig }
+type PayHereProvider struct {
+	config PayHereConfig
+	client *http.Client
+}
 
 type PayHereCustomer struct {
 	FullName string
@@ -55,11 +61,35 @@ type PayHereNotification struct {
 }
 
 func NewPayHereProvider(config PayHereConfig) *PayHereProvider {
-	return &PayHereProvider{config: config}
+	return &PayHereProvider{config: config, client: &http.Client{Timeout: 5 * time.Second}}
 }
 
 func (p *PayHereProvider) Enabled() bool {
 	return strings.TrimSpace(p.config.MerchantID) != "" && strings.TrimSpace(p.config.Secret) != ""
+}
+
+// ValidateNotifyURL prevents a passenger from entering hosted checkout when
+// PayHere cannot deliver the authoritative server callback. A GET is expected
+// to return 405 because the webhook only accepts POST; any non-5xx response
+// proves that the configured public route reaches an HTTP application.
+func (p *PayHereProvider) ValidateNotifyURL(ctx context.Context) error {
+	parsed, err := url.Parse(strings.TrimSpace(p.config.NotifyURL))
+	if err != nil || parsed.Scheme != "https" || parsed.Host == "" {
+		return errors.New("PayHere notify URL must be a public HTTPS URL")
+	}
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, parsed.String(), nil)
+	if err != nil {
+		return err
+	}
+	response, err := p.client.Do(request)
+	if err != nil {
+		return fmt.Errorf("PayHere notify URL is unreachable: %w", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode >= http.StatusInternalServerError {
+		return fmt.Errorf("PayHere notify URL returned HTTP %d", response.StatusCode)
+	}
+	return nil
 }
 
 func (p *PayHereProvider) CreateSession(paymentID, bookingID uuid.UUID, customer PayHereCustomer, amountMinor int64, currency string) (PayHereSession, error) {

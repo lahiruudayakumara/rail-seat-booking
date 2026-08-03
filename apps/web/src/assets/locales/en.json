@@ -89,7 +89,7 @@
     "inputLabel": "Booking Reference",
     "placeholder": "e.g. REF-100001",
     "contactLabel": "Booking email or phone",
-    "contactPlaceholder": "e.g. passenger@example.com",
+    "contactPlaceholder": "Email or 0771234567",
     "button": "Search Booking",
     "searching": "Searching…",
     "notFound": "No active booking found with that reference code."
@@ -127,6 +127,9 @@
     "Badulla": "Badulla",
     "Hatton": "Hatton",
     "Haputale": "Haputale"
+  },
+  "routes": {
+    "CF-BD-UP": "Colombo Fort–Badulla"
   },
   "languages": {
     "en": "English",

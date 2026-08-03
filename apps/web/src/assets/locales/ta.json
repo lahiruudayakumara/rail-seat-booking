@@ -74,7 +74,7 @@
     "inputLabel": "முன்பதிவு எண்",
     "placeholder": "உதாரணம்: REF-100001",
     "contactLabel": "முன்பதிவு மின்னஞ்சல் அல்லது தொலைபேசி",
-    "contactPlaceholder": "உதாரணம்: passenger@example.com",
+    "contactPlaceholder": "மின்னஞ்சல் அல்லது 0771234567",
     "button": "தேடுக",
     "searching": "தேடுகிறது…",
     "notFound": "அந்த முன்பதிவு எண்ணில் எந்த விவரமும் கிடைக்கவில்லை."
@@ -112,6 +112,9 @@
     "Badulla": "பதுளை",
     "Hatton": "ஹற்றன்",
     "Haputale": "ஹப்புத்தளை"
+  },
+  "routes": {
+    "CF-BD-UP": "கொழும்பு கோட்டை–பதுளை"
   },
   "languages": {
     "en": "English",

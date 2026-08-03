@@ -12,6 +12,7 @@ Whole-journey allocation wastes capacity. This system assigns every route statio
 - Segment-aware availability, expiring seat holds, fare quotes, verified booking lookup, cancellation, references, and audit events
 - Optional passenger registration/login with account-owned booking history while retaining fast guest checkout
 - Account-owned saved traveller profiles plus coach-class, seat-type and language preferences for faster repeat booking
+- Group booking for two to six seats with a traveller assigned per seat, one group reference, and one atomic payment
 - Idempotent booking, built-in local payments, and PayHere Sandbox checkout with verified, replay-safe webhooks
 - Ticket credentials and privacy-preserving ticket verification
 - Transactional full refunds, ticket cancellation, and retrying notification outbox delivery
@@ -98,6 +99,7 @@ Operational procedures are in [runbooks](docs/runbooks/), while cross-service te
 - **Half-open station ranges:** `[origin,destination)` represents travelled legs and permits an exact station handover. Closed ranges would incorrectly conflict at Kandy; per-leg rows would multiply writes and complicate atomic acquisition.
 - **PostgreSQL exclusion constraint:** a partial GiST constraint on run, seat and range protects every writer and API replica. Application-only checks and process mutexes race; Redis locks add lease/fencing failure modes; `SELECT FOR UPDATE` has no row to lock when availability is represented by absence.
 - **Modular monolith:** one Go API keeps booking, fare and audit writes in one local transaction. Microservices or event-driven booking would add network failure and eventual-consistency costs before scale justifies them.
+- **Group aggregate over normal bookings:** each seat remains an independently constrained booking row, while `booking_groups` owns the shared reference, total and payment. A single wide booking row or JSON seat list would weaken segment-conflict enforcement and make individual ticket lifecycle handling harder.
 - **Explicit parameterized SQL with pgx:** locking and range behavior remain visible. A general ORM would save CRUD code but obscure the critical database-specific invariant; sqlc is configured as a possible next hardening step but is not required by the current runtime.
 - **REST/OpenAPI:** inspectable HTTP semantics and generated-client support were favored over GraphQL's additional resolver and caching surface.
 

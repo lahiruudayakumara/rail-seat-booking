@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
 import { QRCodeSVG } from "qrcode.react";
-import { useId, useState, type FormEvent } from "react";
+import { useEffect, useId, useMemo, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { cancelBooking, getPassengerBookings, getStations, getTrainRun } from "@/api";
 import { usePassengerAuth } from "@/auth/use-passenger-auth";
@@ -9,6 +9,7 @@ import { ArrowRight, Button, Calendar, Clock, ConfirmationModal, Eye, EyeOff, Lo
 import type { ApiError, Booking, Station, TrainRun } from "@/types";
 import { formatMoney } from "@/utils";
 import { SavedPassengersPreferences } from "./saved-passengers-preferences";
+import { filterAndSortJourneys, journeyCategory, type JourneyFilter, type JourneySort } from "./journey-list";
 
 type Mode = "login" | "register";
 
@@ -122,8 +123,13 @@ export function AccountView() {
 }
 
 function SignedInAccount({ account, onLogout }: { account: { fullName: string; email: string; phone?: string }; onLogout: () => Promise<void> }) {
+  const pageSize = 4;
   const queryClient = useQueryClient();
   const [cancelId, setCancelId] = useState<string>();
+  const [journeyFilter, setJourneyFilter] = useState<JourneyFilter>("ALL");
+  const [journeySearch, setJourneySearch] = useState("");
+  const [journeySort, setJourneySort] = useState<JourneySort>("BOOKED_DESC");
+  const [journeyPage, setJourneyPage] = useState(1);
   const bookingsQuery = useQuery({ queryKey: ["passenger-bookings"], queryFn: getPassengerBookings });
   const bookingRunIds = [...new Set(bookingsQuery.data?.map((booking) => booking.trainRunId) ?? [])];
   const journeyDetailsQuery = useQuery({
@@ -146,6 +152,21 @@ function SignedInAccount({ account, onLogout }: { account: { fullName: string; e
     onSuccess: () => { setCancelId(undefined); void queryClient.invalidateQueries({ queryKey: ["passenger-bookings"] }); },
   });
   const cancellingBooking = bookingsQuery.data?.find((booking) => booking.id === cancelId);
+  const bookings = useMemo(() => bookingsQuery.data ?? [], [bookingsQuery.data]);
+  const filteredBookings = useMemo(
+    () => filterAndSortJourneys(bookings, journeyDetailsQuery.data, journeyFilter, journeySearch, journeySort),
+    [bookings, journeyDetailsQuery.data, journeyFilter, journeySearch, journeySort],
+  );
+  const journeyCounts = useMemo(() => {
+    const counts: Record<JourneyFilter, number> = { ALL: bookings.length, UPCOMING: 0, PAST: 0, CANCELLED: 0 };
+    bookings.forEach((booking) => { counts[journeyCategory(booking, journeyDetailsQuery.data?.runs[booking.trainRunId])] += 1; });
+    return counts;
+  }, [bookings, journeyDetailsQuery.data]);
+  const pageCount = Math.max(1, Math.ceil(filteredBookings.length / pageSize));
+  const visibleBookings = filteredBookings.slice((journeyPage - 1) * pageSize, journeyPage * pageSize);
+
+  useEffect(() => { setJourneyPage(1); }, [journeyFilter, journeySearch, journeySort]);
+  useEffect(() => { setJourneyPage((current) => Math.min(current, pageCount)); }, [pageCount]);
 
   return (
     <section className="grid gap-6">
@@ -159,8 +180,48 @@ function SignedInAccount({ account, onLogout }: { account: { fullName: string; e
         {bookingsQuery.isLoading && <div className="py-10"><LoadingSpinner label="Loading your bookings" /></div>}
         {bookingsQuery.isError && <p className="mt-6 rounded-lg bg-red-50 p-4 text-sm text-red-700">{errorMessage(bookingsQuery.error)}</p>}
         {bookingsQuery.data?.length === 0 && <div className="mt-6 rounded-xl border border-dashed border-stone-300 p-8 text-center"><Ticket className="mx-auto text-stone-400" size={30} /><p className="mt-3 font-bold text-stone-800">No account bookings yet</p><p className="mt-1 text-sm text-stone-500">Your next signed-in reservation will appear here.</p></div>}
+        {bookings.length > 0 && (
+          <div className="mt-6 grid gap-4 border-y border-stone-200 py-4">
+            <div className="flex gap-2 overflow-x-auto pb-1" role="tablist" aria-label="Filter your journeys">
+              {(["ALL", "UPCOMING", "PAST", "CANCELLED"] as JourneyFilter[]).map((filter) => (
+                <button
+                  key={filter}
+                  type="button"
+                  role="tab"
+                  aria-selected={journeyFilter === filter}
+                  onClick={() => setJourneyFilter(filter)}
+                  className={`shrink-0 rounded-full px-3.5 py-2 text-xs font-extrabold transition ${journeyFilter === filter ? "bg-[#6b1724] text-white shadow-sm" : "bg-stone-100 text-stone-600 hover:bg-stone-200"}`}
+                >
+                  {filter === "ALL" ? "All" : filter === "UPCOMING" ? "Upcoming" : filter === "PAST" ? "Past" : "Cancelled"}
+                  <span className={`ml-2 rounded-full px-1.5 py-0.5 text-[10px] ${journeyFilter === filter ? "bg-white/20" : "bg-white"}`}>{journeyCounts[filter]}</span>
+                </button>
+              ))}
+            </div>
+            <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
+              <label className="relative min-w-0">
+                <span className="sr-only">Search bookings</span>
+                <input
+                  type="search"
+                  className="form-input"
+                  value={journeySearch}
+                  onChange={(event) => setJourneySearch(event.target.value)}
+                  placeholder="Search reference, station, coach or seat"
+                />
+              </label>
+              <label className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-2 text-xs font-bold text-stone-500">
+                <span>Sort</span>
+                <select className="form-input min-w-40" value={journeySort} onChange={(event) => setJourneySort(event.target.value as JourneySort)}>
+                  <option value="BOOKED_DESC">Recently booked</option>
+                  <option value="BOOKED_ASC">Oldest booked</option>
+                  <option value="TRAVEL_ASC">Travel date</option>
+                </select>
+              </label>
+            </div>
+            <p className="text-xs font-semibold text-stone-500" role="status">Showing {filteredBookings.length} of {bookings.length} bookings</p>
+          </div>
+        )}
         <div className="mt-6 grid gap-5">
-          {bookingsQuery.data?.map((booking) => (
+          {visibleBookings.map((booking) => (
             <JourneyTicket
               key={booking.id}
               booking={booking}
@@ -170,7 +231,22 @@ function SignedInAccount({ account, onLogout }: { account: { fullName: string; e
               onCancel={() => { cancelMutation.reset(); setCancelId(booking.id); }}
             />
           ))}
+          {bookings.length > 0 && filteredBookings.length === 0 && (
+            <div className="rounded-xl border border-dashed border-stone-300 px-5 py-10 text-center"><Ticket className="mx-auto text-stone-400" size={28} /><p className="mt-3 font-bold text-stone-800">No matching journeys</p><p className="mt-1 text-sm text-stone-500">Try another filter or clear your search.</p><button type="button" className="mt-4 text-sm font-bold text-[#6b1724] underline underline-offset-4" onClick={() => { setJourneyFilter("ALL"); setJourneySearch(""); }}>Clear filters</button></div>
+          )}
         </div>
+        {filteredBookings.length > pageSize && (
+          <nav className="mt-6 flex flex-col items-center justify-between gap-3 border-t border-stone-200 pt-5 sm:flex-row" aria-label="Bookings pagination">
+            <p className="text-xs font-semibold text-stone-500">Page {journeyPage} of {pageCount}</p>
+            <div className="flex items-center gap-1.5">
+              <button type="button" className="rounded-lg border border-stone-200 px-3 py-2 text-xs font-bold text-stone-700 disabled:cursor-not-allowed disabled:opacity-40" disabled={journeyPage === 1} onClick={() => setJourneyPage((page) => page - 1)}>Previous</button>
+              {Array.from({ length: pageCount }, (_, index) => index + 1).map((page) => (
+                <button key={page} type="button" aria-label={`Go to bookings page ${page}`} aria-current={journeyPage === page ? "page" : undefined} className={`h-9 min-w-9 rounded-lg text-xs font-extrabold ${journeyPage === page ? "bg-[#6b1724] text-white" : "border border-stone-200 text-stone-600 hover:bg-stone-50"}`} onClick={() => setJourneyPage(page)}>{page}</button>
+              ))}
+              <button type="button" className="rounded-lg border border-stone-200 px-3 py-2 text-xs font-bold text-stone-700 disabled:cursor-not-allowed disabled:opacity-40" disabled={journeyPage === pageCount} onClick={() => setJourneyPage((page) => page + 1)}>Next</button>
+            </div>
+          </nav>
+        )}
       </div>
       <ConfirmationModal
         open={Boolean(cancellingBooking)}

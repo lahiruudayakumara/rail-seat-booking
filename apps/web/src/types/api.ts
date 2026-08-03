@@ -51,6 +51,12 @@ export type BookingHold = {
   managementToken: string;
 };
 
+export type SeatSelectionItem = {
+  seat: Seat;
+  quote: FareQuote;
+  hold: BookingHold;
+};
+
 export type Ticket = {
   id: string;
   verificationCode: string;
@@ -63,9 +69,36 @@ export type CheckoutResult = {
   booking: Booking;
 };
 
+export type GroupMember = {
+  booking: Booking;
+  passenger: CreateBookingRequest["passenger"];
+};
+
+export type BookingGroup = {
+  id: string;
+  reference: string;
+  status: string;
+  members: GroupMember[];
+  fare: Money;
+  createdAt: string;
+  confirmedAt?: string;
+  managementToken?: string;
+};
+
+export type CreateBookingGroupRequest = {
+  members: Array<CreateBookingRequest & { holdToken: string }>;
+};
+
+export type GroupCheckoutResult = {
+  payment: CheckoutResult["payment"];
+  tickets: Ticket[];
+  group: BookingGroup;
+};
+
 export type PayHereCheckoutSession = {
   paymentId: string;
   bookingId: string;
+  groupId?: string;
   status: "PENDING";
   expiresAt: string;
   actionUrl: string;
@@ -80,8 +113,10 @@ export type PayHerePaymentStatus = {
   amountMinor: number;
   currency: string;
   paidAt?: string;
-  booking: Booking;
+  booking?: Booking;
   ticket?: Ticket;
+  group?: BookingGroup;
+  tickets?: Ticket[];
 };
 
 export type Money = {
@@ -158,10 +193,13 @@ export type SavedTravellerInput = {
   phone: string;
 };
 
-export type PassengerPreferences = {
+export type PassengerPreferencesInput = {
   preferredCoachClass: "ANY" | "FIRST" | "SECOND";
   preferredSeatType: "ANY" | "WINDOW" | "AISLE";
   language: "en" | "si" | "ta";
+};
+
+export type PassengerPreferences = PassengerPreferencesInput & {
   updatedAt?: string;
 };
 

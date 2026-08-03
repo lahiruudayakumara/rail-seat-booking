@@ -1,14 +1,50 @@
 package payment
 
 import (
+	"context"
+	"errors"
+	"io"
+	"net/http"
 	"net/url"
+	"strings"
 	"testing"
 
 	"github.com/google/uuid"
 )
 
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (fn roundTripFunc) RoundTrip(request *http.Request) (*http.Response, error) {
+	return fn(request)
+}
+
 func testPayHereProvider() *PayHereProvider {
 	return NewPayHereProvider(PayHereConfig{MerchantID: "1210000", Secret: "sandbox-merchant-secret", Sandbox: true, ReturnURL: "http://localhost:3000/payment/return", CancelURL: "http://localhost:3000/payment/cancel", NotifyURL: "https://example.test/webhooks/payhere"})
+}
+
+func TestPayHereNotifyURLMustBeReachableBeforeCheckout(t *testing.T) {
+	provider := testPayHereProvider()
+	provider.client = &http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
+		return &http.Response{StatusCode: http.StatusMethodNotAllowed, Body: io.NopCloser(strings.NewReader(""))}, nil
+	})}
+	if err := provider.ValidateNotifyURL(context.Background()); err != nil {
+		t.Fatalf("reachable callback rejected: %v", err)
+	}
+
+	provider.client = &http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
+		return nil, errors.New("tunnel offline")
+	})}
+	if err := provider.ValidateNotifyURL(context.Background()); err == nil {
+		t.Fatal("unreachable callback accepted")
+	}
+}
+
+func TestPayHereNotifyURLRejectsLocalHTTP(t *testing.T) {
+	provider := testPayHereProvider()
+	provider.config.NotifyURL = "http://localhost:8080/api/v1/webhooks/payhere"
+	if err := provider.ValidateNotifyURL(context.Background()); err == nil {
+		t.Fatal("non-public HTTP callback accepted")
+	}
 }
 
 func TestPayHereSessionUsesSandboxAndNeverExposesSecret(t *testing.T) {

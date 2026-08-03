@@ -1,4 +1,4 @@
-import type { Booking, PassengerAccount, PassengerPreferences, RegisterPassengerRequest, SavedTraveller, SavedTravellerInput } from "@/types";
+import type { Booking, PassengerAccount, PassengerPreferences, PassengerPreferencesInput, RegisterPassengerRequest, SavedTraveller, SavedTravellerInput } from "@/types";
 import { api } from "./api-instance";
 
 export async function registerPassenger(body: RegisterPassengerRequest) {
@@ -49,7 +49,12 @@ export async function getPassengerPreferences() {
   return response.data;
 }
 
-export async function updatePassengerPreferences(body: PassengerPreferences) {
-  const response = await api.put<PassengerPreferences>("/api/v1/passenger/preferences", body);
+export async function updatePassengerPreferences(body: PassengerPreferencesInput) {
+  const { preferredCoachClass, preferredSeatType, language } = body;
+  const response = await api.put<PassengerPreferences>("/api/v1/passenger/preferences", {
+    preferredCoachClass,
+    preferredSeatType,
+    language,
+  });
   return response.data;
 }

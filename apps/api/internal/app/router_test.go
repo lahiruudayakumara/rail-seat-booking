@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -37,6 +38,22 @@ func TestCORS(t *testing.T) {
 		if tc.want != "" && recorder.Header().Get("Access-Control-Allow-Credentials") != "true" {
 			t.Error("expected credentialed CORS for an allowed origin")
 		}
+	}
+}
+
+func TestCORSPreflightAllowsPassengerMutations(t *testing.T) {
+	request := httptest.NewRequest(http.MethodOptions, "/api/v1/booking-holds/00000000-0000-0000-0000-000000000001", nil)
+	request.Header.Set("Origin", "http://localhost:3000")
+	request.Header.Set("Access-Control-Request-Method", http.MethodDelete)
+	recorder := httptest.NewRecorder()
+	testRouter().ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusNoContent {
+		t.Fatalf("got %d; want %d", recorder.Code, http.StatusNoContent)
+	}
+	methods := recorder.Header().Get("Access-Control-Allow-Methods")
+	if !strings.Contains(methods, http.MethodDelete) || !strings.Contains(methods, http.MethodPut) {
+		t.Fatalf("mutation methods missing from CORS allow-list: %q", methods)
 	}
 }
 

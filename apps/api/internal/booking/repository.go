@@ -36,11 +36,81 @@ func (r *Repository) Quote(ctx context.Context, db database.DBTX, id uuid.UUID) 
 }
 func (r *Repository) InsertPassenger(ctx context.Context, db database.DBTX, id uuid.UUID, accountID *uuid.UUID, input PassengerInput) error {
 	if accountID != nil {
-		_, err := db.Exec(ctx, `INSERT INTO passengers(id,account_id,full_name,email_normalized,phone_e164) SELECT $1,id,full_name,email_normalized,phone_e164 FROM passenger_accounts WHERE id=$2`, id, *accountID)
+		_, err := db.Exec(ctx, `INSERT INTO passengers(id,account_id,full_name,email_normalized,phone_e164) VALUES($1,$2,$3,NULLIF(lower($4),''),NULLIF($5,''))`, id, *accountID, input.FullName, input.Email, input.Phone)
 		return err
 	}
 	_, err := db.Exec(ctx, `INSERT INTO passengers(id,full_name,email_normalized,phone_e164) VALUES($1,$2,NULLIF(lower($3),''),NULLIF($4,''))`, id, input.FullName, input.Email, input.Phone)
 	return err
+}
+
+func (r *Repository) PrepareHeldBookingGroup(ctx context.Context, db database.DBTX, id, passengerID, groupID uuid.UUID, reference string) error {
+	_, err := db.Exec(ctx, `UPDATE bookings SET reference=$2,passenger_id=$3,booking_group_id=$4,updated_at=now() WHERE id=$1`, id, reference, passengerID, groupID)
+	return err
+}
+
+func (r *Repository) ReserveGroupIdempotency(ctx context.Context, db database.DBTX, keyHash, requestHash string) (bool, error) {
+	tag, err := db.Exec(ctx, `INSERT INTO group_idempotency_keys(scope,key_hash,request_hash) VALUES('create-group',$1,$2) ON CONFLICT DO NOTHING`, keyHash, requestHash)
+	return tag.RowsAffected() == 1, err
+}
+
+func (r *Repository) GroupIdempotency(ctx context.Context, db database.DBTX, keyHash string) (string, *uuid.UUID, error) {
+	var requestHash string
+	var groupID *uuid.UUID
+	err := db.QueryRow(ctx, `SELECT request_hash,booking_group_id FROM group_idempotency_keys WHERE scope='create-group' AND key_hash=$1 FOR UPDATE`, keyHash).Scan(&requestHash, &groupID)
+	return requestHash, groupID, err
+}
+
+func (r *Repository) AttachGroupIdempotency(ctx context.Context, db database.DBTX, keyHash string, groupID uuid.UUID) error {
+	_, err := db.Exec(ctx, `UPDATE group_idempotency_keys SET booking_group_id=$1 WHERE scope='create-group' AND key_hash=$2`, groupID, keyHash)
+	return err
+}
+
+func (r *Repository) InsertGroup(ctx context.Context, db database.DBTX, id uuid.UUID, reference string, accountID *uuid.UUID, amountMinor int64, currency string, currencyScale int16, expiresAt time.Time) error {
+	_, err := db.Exec(ctx, `INSERT INTO booking_groups(id,reference,account_id,status,fare_total_minor,fare_currency,fare_currency_scale,hold_expires_at) VALUES($1,$2,$3,'HELD',$4,$5,$6,$7)`, id, reference, accountID, amountMinor, currency, currencyScale, expiresAt)
+	return err
+}
+
+func (r *Repository) SetGroupLead(ctx context.Context, db database.DBTX, groupID, bookingID uuid.UUID) error {
+	_, err := db.Exec(ctx, `UPDATE booking_groups SET lead_booking_id=$2 WHERE id=$1`, groupID, bookingID)
+	return err
+}
+
+func (r *Repository) InsertGroupAudit(ctx context.Context, db database.DBTX, eventID, groupID uuid.UUID, eventType, requestID string) error {
+	var parsed *uuid.UUID
+	if id, err := uuid.Parse(requestID); err == nil {
+		parsed = &id
+	}
+	_, err := db.Exec(ctx, `INSERT INTO audit_events(id,aggregate_type,aggregate_id,event_type,request_id,metadata) VALUES($1,'BOOKING_GROUP',$2,$3,$4,'{}'::jsonb)`, eventID, groupID, eventType, parsed)
+	return err
+}
+
+func (r *Repository) LoadGroupHeader(ctx context.Context, db database.DBTX, groupID uuid.UUID) (BookingGroup, error) {
+	var group BookingGroup
+	err := db.QueryRow(ctx, `SELECT id,reference,status,fare_total_minor,fare_currency,fare_currency_scale,created_at,confirmed_at FROM booking_groups WHERE id=$1`, groupID).Scan(&group.ID, &group.Reference, &group.Status, &group.Fare.AmountMinor, &group.Fare.Currency, &group.Fare.CurrencyScale, &group.CreatedAt, &group.ConfirmedAt)
+	return group, err
+}
+
+func (r *Repository) GroupBookingIDs(ctx context.Context, db database.DBTX, groupID uuid.UUID) ([]uuid.UUID, error) {
+	rows, err := db.Query(ctx, `SELECT id FROM bookings WHERE booking_group_id=$1 ORDER BY created_at,id`, groupID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	ids := make([]uuid.UUID, 0)
+	for rows.Next() {
+		var id uuid.UUID
+		if err = rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
+}
+
+func (r *Repository) BookingPassenger(ctx context.Context, db database.DBTX, bookingID uuid.UUID) (PassengerInput, error) {
+	var passenger PassengerInput
+	err := db.QueryRow(ctx, `SELECT p.full_name,COALESCE(p.email_normalized,''),COALESCE(p.phone_e164,'') FROM bookings b JOIN passengers p ON p.id=b.passenger_id WHERE b.id=$1`, bookingID).Scan(&passenger.FullName, &passenger.Email, &passenger.Phone)
+	return passenger, err
 }
 func (r *Repository) InsertBooking(ctx context.Context, db database.DBTX, id uuid.UUID, reference string, passengerID uuid.UUID, q QuoteSnapshot) error {
 	_, err := db.Exec(ctx, `INSERT INTO bookings(id,reference,train_run_id,seat_id,passenger_id,origin_station_id,destination_station_id,origin_position,destination_position,status,fare_rule_id,fare_total_minor,fare_currency,fare_currency_scale,fare_breakdown,confirmed_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,'CONFIRMED',$10,$11,$12,$13,$14,now())`, id, reference, q.TrainRunID, q.SeatID, passengerID, q.OriginStationID, q.DestinationStationID, q.OriginPosition, q.DestinationPosition, q.FareRuleID, q.AmountMinor, q.Currency, q.CurrencyScale, q.Breakdown)
@@ -53,6 +123,10 @@ func (r *Repository) ExpireHolds(ctx context.Context, db database.DBTX) error {
 func (r *Repository) InsertHold(ctx context.Context, db database.DBTX, id uuid.UUID, q QuoteSnapshot, expiresAt time.Time) error {
 	_, err := db.Exec(ctx, `INSERT INTO bookings(id,reference,train_run_id,seat_id,origin_station_id,destination_station_id,origin_position,destination_position,status,fare_rule_id,fare_total_minor,fare_currency,fare_currency_scale,fare_breakdown,hold_expires_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,'HELD',$9,$10,$11,$12,$13,$14)`, id, "HLD-"+strings.ToUpper(id.String()[:12]), q.TrainRunID, q.SeatID, q.OriginStationID, q.DestinationStationID, q.OriginPosition, q.DestinationPosition, q.FareRuleID, q.AmountMinor, q.Currency, q.CurrencyScale, q.Breakdown, expiresAt)
 	return err
+}
+func (r *Repository) ReleaseUnusedHold(ctx context.Context, db database.DBTX, id uuid.UUID) (bool, error) {
+	tag, err := db.Exec(ctx, `UPDATE bookings SET status='EXPIRED',hold_expires_at=NULL,updated_at=now() WHERE id=$1 AND status='HELD' AND passenger_id IS NULL AND booking_group_id IS NULL`, id)
+	return tag.RowsAffected() == 1, err
 }
 func (r *Repository) LockHold(ctx context.Context, db database.DBTX, id uuid.UUID) (QuoteSnapshot, string, time.Time, error) {
 	var q QuoteSnapshot

@@ -26,10 +26,53 @@ func NewHandler(service *Service, logger *slog.Logger) *Handler {
 }
 func (h *Handler) Routes(r chi.Router) {
 	r.With(httpmiddleware.RateLimit(30, time.Minute)).Post("/bookings", h.create)
+	r.With(httpmiddleware.RateLimit(15, time.Minute)).Post("/booking-groups", h.createGroup)
 	r.With(httpmiddleware.RateLimit(60, time.Minute)).Post("/booking-holds", h.createHold)
+	r.Delete("/booking-holds/{holdId}", h.releaseHold)
 	r.With(httpmiddleware.RateLimit(10, time.Minute)).Post("/bookings/access", h.access)
 	r.Post("/bookings/{bookingId}/cancel", h.cancel)
 	r.Get("/passenger/bookings", h.listMine)
+}
+
+func (h *Handler) releaseHold(w http.ResponseWriter, r *http.Request) {
+	id, err := httpx.PathUUID(r, "holdId")
+	if err != nil {
+		httpx.WriteError(w, r, h.logger, err)
+		return
+	}
+	token := strings.TrimSpace(strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer "))
+	if err = h.service.ReleaseHold(r.Context(), id, token, httpx.RequestID(r)); err != nil {
+		httpx.WriteError(w, r, h.logger, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *Handler) createGroup(w http.ResponseWriter, r *http.Request) {
+	payload, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 2<<20))
+	if err != nil {
+		httpx.WriteError(w, r, h.logger, apperror.Validation("body", "Request body is too large."))
+		return
+	}
+	decoder := json.NewDecoder(bytes.NewReader(payload))
+	decoder.DisallowUnknownFields()
+	var request CreateGroupRequest
+	if err = decoder.Decode(&request); err != nil {
+		httpx.WriteError(w, r, h.logger, apperror.Validation("body", "Invalid JSON body."))
+		return
+	}
+	group, replayed, err := h.service.CreateGroup(r.Context(), request, strings.TrimSpace(r.Header.Get("Idempotency-Key")), payload, httpx.RequestID(r))
+	if err != nil {
+		httpx.WriteError(w, r, h.logger, err)
+		return
+	}
+	if replayed {
+		w.Header().Set("Idempotency-Replayed", "true")
+		httpx.WriteJSON(w, http.StatusOK, group)
+		return
+	}
+	w.Header().Set("Location", "/api/v1/booking-groups/"+group.ID.String())
+	httpx.WriteJSON(w, http.StatusCreated, group)
 }
 func (h *Handler) listMine(w http.ResponseWriter, r *http.Request) {
 	account, ok := passengerauth.AccountFromContext(r.Context())

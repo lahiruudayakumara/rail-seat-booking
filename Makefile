@@ -1,4 +1,4 @@
-.PHONY: up seed down reset logs migrate-up migrate-down migration-status test test-go test-web build fmt verify smoke integration load
+.PHONY: up seed down reset logs migrate-up migrate-down migration-status test test-go test-web build fmt verify smoke integration integration-group load
 
 up:
 	docker compose up --build
@@ -48,6 +48,9 @@ smoke:
 
 integration:
 	./tests/integration/booking-flow.sh
+
+integration-group:
+	./tests/integration/group-booking-flow.sh
 
 load:
 	k6 run tests/load/booking-contention.js

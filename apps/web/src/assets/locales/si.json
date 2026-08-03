@@ -74,7 +74,7 @@
     "inputLabel": "වෙන්කිරීමේ අංකය",
     "placeholder": "උදා: REF-100001",
     "contactLabel": "වෙන්කිරීමේ විද්‍යුත් තැපෑල හෝ දුරකථනය",
-    "contactPlaceholder": "උදා: passenger@example.com",
+    "contactPlaceholder": "විද්‍යුත් තැපෑල හෝ 0771234567",
     "button": "සොයන්න",
     "searching": "සොයමින්…",
     "notFound": "එම අංකයට අදාළ වෙන්කිරීමක් හමු නොවීය."
@@ -112,6 +112,9 @@
     "Badulla": "බදුල්ල",
     "Hatton": "හැටන්",
     "Haputale": "හපුතලේ"
+  },
+  "routes": {
+    "CF-BD-UP": "කොළඹ කොටුව–බදුල්ල"
   },
   "languages": {
     "en": "English",

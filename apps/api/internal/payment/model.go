@@ -12,6 +12,11 @@ type CheckoutRequest struct {
 	BookingToken string    `json:"bookingToken"`
 }
 
+type GroupCheckoutRequest struct {
+	GroupID    uuid.UUID `json:"groupId"`
+	GroupToken string    `json:"groupToken"`
+}
+
 type Payment struct {
 	ID                uuid.UUID `json:"id"`
 	Status            string    `json:"status"`
@@ -32,6 +37,12 @@ type CheckoutResult struct {
 	Payment Payment         `json:"payment"`
 	Ticket  Ticket          `json:"ticket"`
 	Booking booking.Booking `json:"booking"`
+}
+
+type GroupCheckoutResult struct {
+	Payment Payment              `json:"payment"`
+	Tickets []Ticket             `json:"tickets"`
+	Group   booking.BookingGroup `json:"group"`
 }
 
 type VerifyTicketRequest struct {
@@ -65,9 +76,17 @@ type PayHereCheckoutRequest struct {
 	City           string    `json:"city"`
 }
 
+type PayHereGroupCheckoutRequest struct {
+	GroupID        uuid.UUID `json:"groupId"`
+	GroupToken     string    `json:"groupToken"`
+	BillingAddress string    `json:"billingAddress"`
+	City           string    `json:"city"`
+}
+
 type PayHereCheckoutResponse struct {
 	PaymentID uuid.UUID         `json:"paymentId"`
 	BookingID uuid.UUID         `json:"bookingId"`
+	GroupID   *uuid.UUID        `json:"groupId,omitempty"`
 	Status    string            `json:"status"`
 	ExpiresAt time.Time         `json:"expiresAt"`
 	ActionURL string            `json:"actionUrl"`
@@ -75,20 +94,23 @@ type PayHereCheckoutResponse struct {
 }
 
 type PayHerePaymentStatus struct {
-	PaymentID         uuid.UUID       `json:"paymentId"`
-	BookingID         uuid.UUID       `json:"bookingId"`
-	Status            string          `json:"status"`
-	ProviderReference string          `json:"providerReference"`
-	AmountMinor       int64           `json:"amountMinor"`
-	Currency          string          `json:"currency"`
-	PaidAt            *time.Time      `json:"paidAt,omitempty"`
-	Booking           booking.Booking `json:"booking"`
-	Ticket            *Ticket         `json:"ticket,omitempty"`
+	PaymentID         uuid.UUID             `json:"paymentId"`
+	BookingID         uuid.UUID             `json:"bookingId"`
+	Status            string                `json:"status"`
+	ProviderReference string                `json:"providerReference"`
+	AmountMinor       int64                 `json:"amountMinor"`
+	Currency          string                `json:"currency"`
+	PaidAt            *time.Time            `json:"paidAt,omitempty"`
+	Booking           *booking.Booking      `json:"booking,omitempty"`
+	Ticket            *Ticket               `json:"ticket,omitempty"`
+	Group             *booking.BookingGroup `json:"group,omitempty"`
+	Tickets           []Ticket              `json:"tickets,omitempty"`
 }
 
 type payHereCheckoutRecord struct {
 	PaymentID     uuid.UUID
 	BookingID     uuid.UUID
+	GroupID       *uuid.UUID
 	Status        string
 	BookingStatus string
 	AmountMinor   int64
@@ -102,6 +124,7 @@ type payHereCheckoutRecord struct {
 type payHerePaymentRecord struct {
 	PaymentID         uuid.UUID
 	BookingID         uuid.UUID
+	GroupID           *uuid.UUID
 	Status            string
 	ProviderReference string
 	AmountMinor       int64
@@ -109,4 +132,15 @@ type payHerePaymentRecord struct {
 	PaidAt            *time.Time
 	TicketID          *uuid.UUID
 	TicketStatus      *string
+}
+
+type groupCheckoutRecord struct {
+	GroupID uuid.UUID
+	Payment Payment
+}
+
+type ticketIssue struct {
+	ID        uuid.UUID
+	BookingID uuid.UUID
+	CodeHash  string
 }

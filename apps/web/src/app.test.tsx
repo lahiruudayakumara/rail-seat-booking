@@ -51,10 +51,14 @@ vi.mock("@/api", () => ({
   getSeatMap: vi.fn().mockResolvedValue({ items: [] }),
   getQuote: vi.fn(),
   createHold: vi.fn(),
+  releaseHold: vi.fn(),
   createBooking: vi.fn(),
+  createBookingGroup: vi.fn(),
   checkoutSandbox: vi.fn(),
+  checkoutSandboxGroup: vi.fn(),
   paymentProvider: "sandbox",
   startPayHereCheckout: vi.fn(),
+  startPayHereGroupCheckout: vi.fn(),
   getPayHerePayment: vi.fn(),
   redirectToPayHere: vi.fn(),
   getStoredPayHereAccess: vi.fn(),
@@ -107,6 +111,11 @@ test("renders the journey search page", async () => {
   expect(await screen.findByRole("option", { name: "Colombo Fort" })).toBeInTheDocument();
   await user.selectOptions(screen.getByRole("combobox", { name: "Origin Station" }), "station-1");
   expect(screen.getByRole("option", { name: "Kandy" })).toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: "සිංහල" }));
+  expect(
+    screen.getByRole("option", { name: "කොළඹ කොටුව–බදුල්ල" }),
+  ).toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: "English" }));
 });
 
 test("keeps administrator credentials in the browser session", async () => {

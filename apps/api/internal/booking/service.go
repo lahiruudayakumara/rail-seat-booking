@@ -59,6 +59,31 @@ func (s *Service) CreateHold(ctx context.Context, request HoldRequest, requestID
 	}
 	return Hold{ID: holdID, Status: "HELD", ExpiresAt: expiresAt, ManagementToken: s.access.Sign(holdID)}, nil
 }
+
+func (s *Service) ReleaseHold(ctx context.Context, holdID uuid.UUID, token, requestID string) error {
+	if holdID == uuid.Nil || s.access.Verify(token, holdID) != nil {
+		return apperror.New(401, "HOLD_ACCESS_DENIED", "A valid seat hold is required.", nil)
+	}
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return apperror.Wrap(err)
+	}
+	defer tx.Rollback(ctx)
+	released, err := s.repo.ReleaseUnusedHold(ctx, tx, holdID)
+	if err != nil {
+		return apperror.Wrap(err)
+	}
+	if released {
+		if err = s.repo.InsertAudit(ctx, tx, uuid.New(), holdID, "SEAT_HOLD_RELEASED", requestID); err != nil {
+			return apperror.Wrap(err)
+		}
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return apperror.Wrap(err)
+	}
+	return nil
+}
+
 func (s *Service) Create(ctx context.Context, request CreateRequest, idempotencyKey string, payload []byte, requestID string) (Booking, bool, error) {
 	if len(idempotencyKey) < 16 || len(idempotencyKey) > 128 {
 		return Booking{}, false, apperror.Validation("Idempotency-Key", "Header must contain 16 to 128 characters.")
@@ -158,7 +183,7 @@ func (s *Service) ListForAccount(ctx context.Context, accountID uuid.UUID) ([]Bo
 }
 func (s *Service) Access(ctx context.Context, request AccessRequest) (Booking, error) {
 	reference := strings.ToUpper(strings.TrimSpace(request.Reference))
-	contact := strings.TrimSpace(request.Contact)
+	contact := normalizeLookupContact(request.Contact)
 	if reference == "" || contact == "" {
 		return Booking{}, apperror.Validation("access", "Booking reference and email or phone are required.")
 	}
@@ -174,6 +199,27 @@ func (s *Service) Access(ctx context.Context, request AccessRequest) (Booking, e
 		item.ManagementToken = s.access.Sign(item.ID)
 	}
 	return item, err
+}
+
+func normalizeLookupContact(value string) string {
+	value = strings.TrimSpace(value)
+	if strings.Contains(value, "@") {
+		return strings.ToLower(value)
+	}
+
+	compact := strings.NewReplacer(" ", "", "-", "", "(", "", ")", "").Replace(value)
+	switch {
+	case strings.HasPrefix(compact, "0094"):
+		return "+" + strings.TrimPrefix(compact, "00")
+	case strings.HasPrefix(compact, "94") && len(compact) == 11:
+		return "+" + compact
+	case strings.HasPrefix(compact, "0") && len(compact) == 10:
+		return "+94" + compact[1:]
+	case len(compact) == 9 && compact[0] != '+':
+		return "+94" + compact
+	default:
+		return compact
+	}
 }
 func (s *Service) Cancel(ctx context.Context, id uuid.UUID, token, reason, requestID string) (Booking, error) {
 	if err := s.access.Verify(token, id); err != nil {
