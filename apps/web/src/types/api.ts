@@ -141,6 +141,32 @@ export type Booking = {
   refund?: { id: string; status: string; amountMinor: number; currency: string };
 };
 
+export type WaitlistEntry = {
+  id: string;
+  reference: string;
+  trainRunId: string;
+  originStationId: string;
+  destinationStationId: string;
+  fullName: string;
+  email?: string;
+  phone?: string;
+  preferredCoachClass: "ANY" | "FIRST" | "SECOND";
+  status: "WAITING" | "NOTIFIED" | "CANCELLED" | "EXPIRED" | "FULFILLED";
+  createdAt: string;
+  notifiedAt?: string;
+  managementToken?: string;
+};
+
+export type CreateWaitlistEntryRequest = {
+  trainRunId: string;
+  originStationId: string;
+  destinationStationId: string;
+  fullName: string;
+  email: string;
+  phone: string;
+  preferredCoachClass: WaitlistEntry["preferredCoachClass"];
+};
+
 export type CreateBookingRequest = {
   holdId: string;
   holdToken: string;
