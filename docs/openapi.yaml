@@ -144,6 +144,21 @@ paths:
         '409': {$ref: '#/components/responses/Conflict'}
         '422': {$ref: '#/components/responses/Unprocessable'}
         '503': {$ref: '#/components/responses/ServiceUnavailable'}
+  /api/v1/booking-groups:
+    post:
+      tags: [Bookings]
+      operationId: createBookingGroup
+      description: Atomically converts two to six seat holds for the same train and segment into one payable group with a single reference.
+      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/CreateBookingGroupRequest'}}}}
+      responses:
+        '201': {description: Group prepared for one payment, headers: {Location: {schema: {type: string}}}, content: {application/json: {schema: {$ref: '#/components/schemas/BookingGroup'}}}}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/Unprocessable'}
+        '429': {$ref: '#/components/responses/TooManyRequests'}
   /api/v1/passenger/register:
     post:
       tags: [Passenger accounts]
@@ -255,6 +270,18 @@ paths:
         '409': {$ref: '#/components/responses/Conflict'}
         '422': {$ref: '#/components/responses/Unprocessable'}
         '429': {$ref: '#/components/responses/TooManyRequests'}
+  /api/v1/booking-holds/{holdId}:
+    delete:
+      tags: [Bookings]
+      operationId: releaseBookingHold
+      description: Releases an unused seat hold immediately when a passenger removes a seat from the selection.
+      security: [{bearerAuth: []}]
+      parameters:
+        - {name: holdId, in: path, required: true, schema: {type: string, format: uuid}}
+      responses:
+        '204': {description: Hold released or no longer releasable}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
   /api/v1/bookings/access:
     post:
       tags: [Bookings]
@@ -278,6 +305,19 @@ paths:
         '404': {$ref: '#/components/responses/NotFound'}
         '409': {$ref: '#/components/responses/Conflict'}
         '422': {$ref: '#/components/responses/Unprocessable'}
+  /api/v1/payments/sandbox/groups:
+    post:
+      tags: [Payments]
+      operationId: checkoutSandboxGroupPayment
+      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
+      description: Atomically collects one local-development payment, confirms every member booking, and issues one ticket per seat.
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/SandboxGroupCheckoutRequest'}}}}
+      responses:
+        '201': {description: Paid group and issued tickets, content: {application/json: {schema: {$ref: '#/components/schemas/GroupCheckoutResult'}}}}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/Unprocessable'}
   /api/v1/payments/payhere:
     post:
       tags: [Payments]
@@ -285,6 +325,20 @@ paths:
       parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
       description: Creates or reuses a pending PayHere checkout. The returned fields form a server-signed POST to the hosted checkout page; no merchant secret is returned.
       requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/PayHereCheckoutRequest'}}}}
+      responses:
+        '201': {description: Signed hosted-checkout form, content: {application/json: {schema: {$ref: '#/components/schemas/PayHereCheckoutResponse'}}}}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/Unprocessable'}
+        '503': {$ref: '#/components/responses/ServiceUnavailable'}
+  /api/v1/payments/payhere/groups:
+    post:
+      tags: [Payments]
+      operationId: startPayHereGroupCheckout
+      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
+      description: Creates or reuses one signed PayHere checkout for the complete group fare.
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/PayHereGroupCheckoutRequest'}}}}
       responses:
         '201': {description: Signed hosted-checkout form, content: {application/json: {schema: {$ref: '#/components/schemas/PayHereCheckoutResponse'}}}}
         '401': {$ref: '#/components/responses/Unauthorized'}
@@ -536,6 +590,16 @@ components:
         originStationId: {type: string, format: uuid}
         destinationStationId: {type: string, format: uuid}
         passenger: {$ref: '#/components/schemas/PassengerInput'}
+    CreateBookingGroupRequest:
+      type: object
+      additionalProperties: false
+      required: [members]
+      properties:
+        members:
+          type: array
+          minItems: 2
+          maxItems: 6
+          items: {$ref: '#/components/schemas/CreateBookingRequest'}
     BookingHoldRequest:
       type: object
       additionalProperties: false
@@ -564,6 +628,13 @@ components:
       properties:
         bookingId: {type: string, format: uuid}
         bookingToken: {type: string}
+    SandboxGroupCheckoutRequest:
+      type: object
+      additionalProperties: false
+      required: [groupId, groupToken]
+      properties:
+        groupId: {type: string, format: uuid}
+        groupToken: {type: string}
     PayHereCheckoutRequest:
       type: object
       additionalProperties: false
@@ -573,19 +644,29 @@ components:
         bookingToken: {type: string}
         billingAddress: {type: string, minLength: 3, maxLength: 200}
         city: {type: string, minLength: 2, maxLength: 80}
+    PayHereGroupCheckoutRequest:
+      type: object
+      additionalProperties: false
+      required: [groupId, groupToken, billingAddress, city]
+      properties:
+        groupId: {type: string, format: uuid}
+        groupToken: {type: string}
+        billingAddress: {type: string, minLength: 3, maxLength: 200}
+        city: {type: string, minLength: 2, maxLength: 80}
     PayHereCheckoutResponse:
       type: object
       required: [paymentId, bookingId, status, expiresAt, actionUrl, fields]
       properties:
         paymentId: {type: string, format: uuid}
         bookingId: {type: string, format: uuid}
+        groupId: {type: string, format: uuid, description: Present for a group checkout}
         status: {type: string, const: PENDING}
         expiresAt: {type: string, format: date-time}
         actionUrl: {type: string, format: uri, description: PayHere hosted Sandbox or production checkout endpoint selected by server configuration}
         fields: {type: object, additionalProperties: {type: string}, description: Signed hidden form fields to POST to actionUrl}
     PayHerePaymentStatus:
       type: object
-      required: [paymentId, bookingId, status, providerReference, amountMinor, currency, booking]
+      required: [paymentId, bookingId, status, providerReference, amountMinor, currency]
       properties:
         paymentId: {type: string, format: uuid}
         bookingId: {type: string, format: uuid}
@@ -596,6 +677,8 @@ components:
         paidAt: {type: string, format: date-time}
         booking: {$ref: '#/components/schemas/Booking'}
         ticket: {type: object, required: [id, verificationCode, status], properties: {id: {type: string, format: uuid}, verificationCode: {type: string}, status: {type: string, enum: [ACTIVE, CANCELLED, USED]}}}
+        group: {$ref: '#/components/schemas/BookingGroup'}
+        tickets: {type: array, items: {$ref: '#/components/schemas/Ticket'}}
     PayHereNotification:
       type: object
       additionalProperties: true
@@ -615,6 +698,20 @@ components:
         payment: {type: object, additionalProperties: true}
         ticket: {type: object, required: [id, verificationCode, status], properties: {id: {type: string, format: uuid}, verificationCode: {type: string}, status: {type: string, enum: [ACTIVE, CANCELLED, USED]}}}
         booking: {$ref: '#/components/schemas/Booking'}
+    Ticket:
+      type: object
+      required: [id, verificationCode, status]
+      properties:
+        id: {type: string, format: uuid}
+        verificationCode: {type: string}
+        status: {type: string, enum: [ACTIVE, CANCELLED, USED]}
+    GroupCheckoutResult:
+      type: object
+      required: [payment, tickets, group]
+      properties:
+        payment: {type: object, additionalProperties: true}
+        tickets: {type: array, minItems: 2, maxItems: 6, items: {$ref: '#/components/schemas/Ticket'}}
+        group: {$ref: '#/components/schemas/BookingGroup'}
     VerifyTicketRequest:
       type: object
       additionalProperties: false
@@ -652,6 +749,24 @@ components:
         cancelledAt: {type: [string, 'null'], format: date-time}
         managementToken: {type: string, description: Short-lived opaque token for managing this booking}
         refund: {$ref: '#/components/schemas/RefundSummary'}
+    BookingGroupMember:
+      type: object
+      required: [booking, passenger]
+      properties:
+        booking: {$ref: '#/components/schemas/Booking'}
+        passenger: {$ref: '#/components/schemas/PassengerInput'}
+    BookingGroup:
+      type: object
+      required: [id, reference, status, members, fare, createdAt]
+      properties:
+        id: {type: string, format: uuid}
+        reference: {type: string, pattern: '^GR-[A-Z0-9]{8,16}$'}
+        status: {type: string, enum: [HELD, CONFIRMED, CANCELLED, EXPIRED, COMPLETED]}
+        members: {type: array, minItems: 2, maxItems: 6, items: {$ref: '#/components/schemas/BookingGroupMember'}}
+        fare: {$ref: '#/components/schemas/Money'}
+        createdAt: {type: string, format: date-time}
+        confirmedAt: {type: [string, 'null'], format: date-time}
+        managementToken: {type: string, description: Short-lived opaque token for paying or managing this group}
     BookingPage:
       type: object
       required: [items]
