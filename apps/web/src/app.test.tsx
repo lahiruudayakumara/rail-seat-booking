@@ -91,6 +91,12 @@ vi.mock("@/api", () => ({
   }),
   logoutPassenger: vi.fn(),
   getPassengerBookings: vi.fn().mockResolvedValue([]),
+  getSavedTravellers: vi.fn().mockResolvedValue([]),
+  createSavedTraveller: vi.fn(),
+  updateSavedTraveller: vi.fn(),
+  deleteSavedTraveller: vi.fn(),
+  getPassengerPreferences: vi.fn().mockResolvedValue({ preferredCoachClass: "ANY", preferredSeatType: "ANY", language: "en" }),
+  updatePassengerPreferences: vi.fn(),
 }));
 
 test("renders the journey search page", async () => {

@@ -143,6 +143,28 @@ export type RegisterPassengerRequest = {
   password: string;
 };
 
+export type SavedTraveller = {
+  id: string;
+  fullName: string;
+  email?: string;
+  phone?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type SavedTravellerInput = {
+  fullName: string;
+  email: string;
+  phone: string;
+};
+
+export type PassengerPreferences = {
+  preferredCoachClass: "ANY" | "FIRST" | "SECOND";
+  preferredSeatType: "ANY" | "WINDOW" | "AISLE";
+  language: "en" | "si" | "ta";
+  updatedAt?: string;
+};
+
 export type AdminDashboard = {
   trainRunId: string;
   sellableSeatSegments: number;

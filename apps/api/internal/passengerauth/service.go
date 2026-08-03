@@ -102,6 +102,125 @@ func (s *Service) Logout(ctx context.Context, token string) error {
 	return s.repo.RevokeSession(ctx, hashToken(token))
 }
 
+func (s *Service) ListTravellers(ctx context.Context, accountID uuid.UUID) ([]Traveller, error) {
+	travellers, err := s.repo.ListTravellers(ctx, accountID)
+	if err != nil {
+		return nil, apperror.Wrap(err)
+	}
+	return travellers, nil
+}
+
+func (s *Service) CreateTraveller(ctx context.Context, accountID uuid.UUID, request TravellerRequest) (Traveller, error) {
+	traveller, err := validateTraveller(request)
+	if err != nil {
+		return Traveller{}, err
+	}
+	count, err := s.repo.CountTravellers(ctx, accountID)
+	if err != nil {
+		return Traveller{}, apperror.Wrap(err)
+	}
+	if count >= 20 {
+		return Traveller{}, apperror.New(409, "TRAVELLER_LIMIT_REACHED", "A passenger account can save up to 20 travellers.", nil)
+	}
+	traveller.ID = uuid.New()
+	traveller, err = s.repo.InsertTraveller(ctx, accountID, traveller)
+	if err != nil {
+		return Traveller{}, apperror.Wrap(err)
+	}
+	return traveller, nil
+}
+
+func (s *Service) UpdateTraveller(ctx context.Context, accountID, travellerID uuid.UUID, request TravellerRequest) (Traveller, error) {
+	traveller, err := validateTraveller(request)
+	if err != nil {
+		return Traveller{}, err
+	}
+	traveller.ID = travellerID
+	traveller, err = s.repo.UpdateTraveller(ctx, accountID, traveller)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Traveller{}, apperror.New(404, "TRAVELLER_NOT_FOUND", "Saved traveller was not found.", nil)
+	}
+	if err != nil {
+		return Traveller{}, apperror.Wrap(err)
+	}
+	return traveller, nil
+}
+
+func (s *Service) DeleteTraveller(ctx context.Context, accountID, travellerID uuid.UUID) error {
+	err := s.repo.DeleteTraveller(ctx, accountID, travellerID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return apperror.New(404, "TRAVELLER_NOT_FOUND", "Saved traveller was not found.", nil)
+	}
+	if err != nil {
+		return apperror.Wrap(err)
+	}
+	return nil
+}
+
+func (s *Service) GetPreferences(ctx context.Context, accountID uuid.UUID) (Preferences, error) {
+	preferences, err := s.repo.GetPreferences(ctx, accountID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Preferences{PreferredCoachClass: "ANY", PreferredSeatType: "ANY", Language: "en"}, nil
+	}
+	if err != nil {
+		return Preferences{}, apperror.Wrap(err)
+	}
+	return preferences, nil
+}
+
+func (s *Service) UpdatePreferences(ctx context.Context, accountID uuid.UUID, request PreferencesRequest) (Preferences, error) {
+	preferences := Preferences{
+		PreferredCoachClass: strings.ToUpper(strings.TrimSpace(request.PreferredCoachClass)),
+		PreferredSeatType:   strings.ToUpper(strings.TrimSpace(request.PreferredSeatType)),
+		Language:            strings.ToLower(strings.TrimSpace(request.Language)),
+	}
+	if !oneOf(preferences.PreferredCoachClass, "ANY", "FIRST", "SECOND") {
+		return Preferences{}, apperror.Validation("preferredCoachClass", "Choose ANY, FIRST, or SECOND.")
+	}
+	if !oneOf(preferences.PreferredSeatType, "ANY", "WINDOW", "AISLE") {
+		return Preferences{}, apperror.Validation("preferredSeatType", "Choose ANY, WINDOW, or AISLE.")
+	}
+	if !oneOf(preferences.Language, "en", "si", "ta") {
+		return Preferences{}, apperror.Validation("language", "Choose en, si, or ta.")
+	}
+	preferences, err := s.repo.UpsertPreferences(ctx, accountID, preferences)
+	if err != nil {
+		return Preferences{}, apperror.Wrap(err)
+	}
+	return preferences, nil
+}
+
+func validateTraveller(request TravellerRequest) (Traveller, error) {
+	request.FullName = strings.TrimSpace(request.FullName)
+	request.Email = strings.ToLower(strings.TrimSpace(request.Email))
+	request.Phone = strings.TrimSpace(request.Phone)
+	if len(request.FullName) < 2 || len(request.FullName) > 120 {
+		return Traveller{}, apperror.Validation("fullName", "Full name must contain 2 to 120 characters.")
+	}
+	if request.Email != "" {
+		address, err := mail.ParseAddress(request.Email)
+		if err != nil || address.Address != request.Email || len(request.Email) > 254 {
+			return Traveller{}, apperror.Validation("email", "Enter a valid email address.")
+		}
+	}
+	if request.Phone != "" && !phonePattern.MatchString(request.Phone) {
+		return Traveller{}, apperror.Validation("phone", "Use international phone format, for example +94770000000.")
+	}
+	if request.Email == "" && request.Phone == "" {
+		return Traveller{}, apperror.Validation("email", "Enter an email address or phone number.")
+	}
+	return Traveller{FullName: request.FullName, Email: request.Email, Phone: request.Phone}, nil
+}
+
+func oneOf(value string, allowed ...string) bool {
+	for _, candidate := range allowed {
+		if value == candidate {
+			return true
+		}
+	}
+	return false
+}
+
 func (s *Service) newSession(ctx context.Context, accountID uuid.UUID) (Session, error) {
 	raw := make([]byte, 32)
 	if _, err := rand.Read(raw); err != nil {

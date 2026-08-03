@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/lahiruudayakumara/rail-seat-booking/apps/api/internal/httpmiddleware"
 	"github.com/lahiruudayakumara/rail-seat-booking/apps/api/internal/platform/apperror"
@@ -30,6 +31,97 @@ func (h *Handler) Routes(r chi.Router) {
 	r.With(httpmiddleware.RateLimit(10, time.Minute)).Post("/passenger/login", h.login)
 	r.Post("/passenger/logout", h.logout)
 	r.With(h.RequireSession).Get("/passenger/me", h.me)
+	r.With(h.RequireSession).Get("/passenger/travellers", h.listTravellers)
+	r.With(h.RequireSession).Post("/passenger/travellers", h.createTraveller)
+	r.With(h.RequireSession).Put("/passenger/travellers/{travellerID}", h.updateTraveller)
+	r.With(h.RequireSession).Delete("/passenger/travellers/{travellerID}", h.deleteTraveller)
+	r.With(h.RequireSession).Get("/passenger/preferences", h.getPreferences)
+	r.With(h.RequireSession).Put("/passenger/preferences", h.updatePreferences)
+}
+
+func (h *Handler) listTravellers(w http.ResponseWriter, r *http.Request) {
+	account, _ := AccountFromContext(r.Context())
+	travellers, err := h.service.ListTravellers(r.Context(), account.ID)
+	if err != nil {
+		httpx.WriteError(w, r, h.logger, err)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, map[string]any{"items": travellers})
+}
+
+func (h *Handler) createTraveller(w http.ResponseWriter, r *http.Request) {
+	account, _ := AccountFromContext(r.Context())
+	var request TravellerRequest
+	if err := httpx.DecodeJSON(w, r, &request); err != nil {
+		httpx.WriteError(w, r, h.logger, err)
+		return
+	}
+	traveller, err := h.service.CreateTraveller(r.Context(), account.ID, request)
+	if err != nil {
+		httpx.WriteError(w, r, h.logger, err)
+		return
+	}
+	w.Header().Set("Location", "/api/v1/passenger/travellers/"+traveller.ID.String())
+	httpx.WriteJSON(w, http.StatusCreated, traveller)
+}
+
+func (h *Handler) updateTraveller(w http.ResponseWriter, r *http.Request) {
+	account, _ := AccountFromContext(r.Context())
+	travellerID, err := uuid.Parse(chi.URLParam(r, "travellerID"))
+	if err != nil {
+		httpx.WriteError(w, r, h.logger, apperror.Validation("travellerID", "Traveller ID must be a UUID."))
+		return
+	}
+	var request TravellerRequest
+	if decodeErr := httpx.DecodeJSON(w, r, &request); decodeErr != nil {
+		httpx.WriteError(w, r, h.logger, decodeErr)
+		return
+	}
+	traveller, err := h.service.UpdateTraveller(r.Context(), account.ID, travellerID, request)
+	if err != nil {
+		httpx.WriteError(w, r, h.logger, err)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, traveller)
+}
+
+func (h *Handler) deleteTraveller(w http.ResponseWriter, r *http.Request) {
+	account, _ := AccountFromContext(r.Context())
+	travellerID, err := uuid.Parse(chi.URLParam(r, "travellerID"))
+	if err != nil {
+		httpx.WriteError(w, r, h.logger, apperror.Validation("travellerID", "Traveller ID must be a UUID."))
+		return
+	}
+	if err = h.service.DeleteTraveller(r.Context(), account.ID, travellerID); err != nil {
+		httpx.WriteError(w, r, h.logger, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *Handler) getPreferences(w http.ResponseWriter, r *http.Request) {
+	account, _ := AccountFromContext(r.Context())
+	preferences, err := h.service.GetPreferences(r.Context(), account.ID)
+	if err != nil {
+		httpx.WriteError(w, r, h.logger, err)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, preferences)
+}
+
+func (h *Handler) updatePreferences(w http.ResponseWriter, r *http.Request) {
+	account, _ := AccountFromContext(r.Context())
+	var request PreferencesRequest
+	if err := httpx.DecodeJSON(w, r, &request); err != nil {
+		httpx.WriteError(w, r, h.logger, err)
+		return
+	}
+	preferences, err := h.service.UpdatePreferences(r.Context(), account.ID, request)
+	if err != nil {
+		httpx.WriteError(w, r, h.logger, err)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, preferences)
 }
 
 func (h *Handler) OptionalSession(next http.Handler) http.Handler {

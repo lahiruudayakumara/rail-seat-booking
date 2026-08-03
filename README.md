@@ -11,6 +11,7 @@ Whole-journey allocation wastes capacity. This system assigns every route statio
 - Configurable routes, ordered stations, distances, trains, runs, coaches, layouts, seats, and fares
 - Segment-aware availability, expiring seat holds, fare quotes, verified booking lookup, cancellation, references, and audit events
 - Optional passenger registration/login with account-owned booking history while retaining fast guest checkout
+- Account-owned saved traveller profiles plus coach-class, seat-type and language preferences for faster repeat booking
 - Idempotent booking, built-in local payments, and PayHere Sandbox checkout with verified, replay-safe webhooks
 - Ticket credentials and privacy-preserving ticket verification
 - Transactional full refunds, ticket cancellation, and retrying notification outbox delivery

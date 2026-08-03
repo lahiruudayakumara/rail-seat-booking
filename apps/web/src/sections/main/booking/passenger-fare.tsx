@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   ArrowRight,
   Button,
@@ -17,7 +18,7 @@ import { useNavigate } from "react-router-dom";
 import { useJourneySearch } from "@/hooks/use-journey-search";
 import { useSeatSelection } from "@/hooks/use-seat-selection";
 import { formatMoney } from "@/utils";
-import { paymentProvider } from "@/api";
+import { getSavedTravellers, paymentProvider } from "@/api";
 
 export function PassengerFare() {
   const { t } = useTranslation();
@@ -28,6 +29,8 @@ export function PassengerFare() {
   const navigate = useNavigate();
 
   const [secondsLeft, setSecondsLeft] = useState(0);
+  const [travellerId, setTravellerId] = useState("account");
+  const travellersQuery = useQuery({ queryKey: ["saved-travellers"], queryFn: getSavedTravellers, enabled: Boolean(account), staleTime: 60_000 });
   useEffect(() => {
     const update = () => setSecondsLeft(Math.max(0, Math.floor((new Date(hold?.expiresAt ?? 0).getTime() - Date.now()) / 1000)));
     update();
@@ -50,6 +53,24 @@ export function PassengerFare() {
       </div>
       <div className="grid gap-8 md:grid-cols-[1fr_320px]">
         <form className="grid gap-4" onSubmit={form.handleSubmit(submitPassenger)}>
+          {account && Boolean(travellersQuery.data?.length) && (
+            <label className="field">
+              <span>Who is travelling?</span>
+              <select value={travellerId} onChange={(event) => {
+                const nextId = event.target.value;
+                setTravellerId(nextId);
+                const traveller = nextId === "account" ? account : travellersQuery.data?.find((item) => item.id === nextId);
+                if (!traveller) return;
+                form.setValue("fullName", traveller.fullName, { shouldValidate: true });
+                form.setValue("email", traveller.email ?? account.email, { shouldValidate: true });
+                form.setValue("phone", traveller.phone ?? account.phone ?? "", { shouldValidate: true });
+              }}>
+                <option value="account">{account.fullName} (myself)</option>
+                {travellersQuery.data?.map((traveller) => <option key={traveller.id} value={traveller.id}>{traveller.fullName}</option>)}
+              </select>
+              <small className="!text-stone-500">Selecting a saved passenger fills the details below.</small>
+            </label>
+          )}
           <Field label={t("passenger.fullName")} error={form.formState.errors.fullName?.message}>
             <input
               placeholder={t("passenger.fullNamePlaceholder")}
