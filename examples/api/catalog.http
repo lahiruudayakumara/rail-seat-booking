@@ -1,6 +1,8 @@
-@baseUrl = http://localhost:8080
-@routeId = 10000000-0000-4000-8000-000000000001
-@travelDate = 2026-08-02
+@baseUrl = {{$dotenv API_BASE_URL}}
+@routeId = {{$dotenv EXAMPLE_ROUTE_ID}}
+@travelDate = {{$dotenv EXAMPLE_TRAVEL_DATE}}
+@originStationId = {{$dotenv EXAMPLE_ORIGIN_STATION_ID}}
+@destinationStationId = {{$dotenv EXAMPLE_DESTINATION_STATION_ID}}
 
 ### Configured routes
 GET {{baseUrl}}/api/v1/routes
@@ -10,7 +12,7 @@ Accept: application/json
 GET {{baseUrl}}/api/v1/routes/{{routeId}}/stations
 Accept: application/json
 
-### Train runs
-# Change travelDate to today or another date covered by the demonstration seed.
-GET {{baseUrl}}/api/v1/train-runs?travelDate={{travelDate}}&routeId={{routeId}}
+### Train runs serving the selected segment
+# Set EXAMPLE_TRAVEL_DATE to a date returned by the current demonstration seed.
+GET {{baseUrl}}/api/v1/train-runs?travelDate={{travelDate}}&routeId={{routeId}}&originStationId={{originStationId}}&destinationStationId={{destinationStationId}}
 Accept: application/json
