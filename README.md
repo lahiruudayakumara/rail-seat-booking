@@ -19,6 +19,7 @@ Whole-journey allocation wastes capacity. This system assigns every route statio
 - Protected, responsive administrator frontend for train-run utilization, revenue, refunds, booking health, and delivery status
 - Responsive, accessible booking flow and an OpenAPI 3.1 contract
 - Interactive coach-by-coach seat map with conflict recovery
+- Segment-aware waitlisting for sold-out journeys, with FIFO eligibility, class preference, self-service cancellation, and transactional availability notifications
 - UTC persistence with `Asia/Colombo` schedule presentation
 
 `HELD` and `CONFIRMED` block inventory; `CANCELLED`, `EXPIRED`, and `COMPLETED` do not. A booking is confirmed only after the configured payment provider succeeds; local development uses an explicit sandbox provider.
@@ -76,6 +77,12 @@ The normative contract is [docs/openapi.yaml](docs/openapi.yaml); endpoint seman
 Fare is `base_fee + travelled_distance × class_rate`, subject to configured minimums and multipliers. Money is integer LKR minor units and each booking stores an immutable fare snapshot; see [fare design](docs/fare-design.md).
 
 Availability is advisory. Booking insertion occurs in a transaction; if concurrent requests overlap, the exclusion constraint lets one commit and maps the loser to `409 SEAT_NO_LONGER_AVAILABLE`. Idempotency keys make safe retries return the original result.
+
+### Waitlist design (extra credit)
+
+Passengers can join a waitlist only when no matching reserved seat is available for their complete segment and preferred class. Entries retain the same ordered origin/destination positions used by bookings. When a confirmed booking is cancelled, the cancellation transaction locks the oldest eligible overlapping entry, verifies that one physical seat is now free across that passenger's complete segment, marks the entry `NOTIFIED`, and writes a `WAITLIST_SEAT_AVAILABLE` message to the transactional outbox. This prevents duplicate notifications across API replicas and never presents a notification as a reservation—the passenger must still complete the normal concurrency-safe booking flow.
+
+The alternative of reserving the released seat automatically was rejected because it can strand inventory behind an unreachable passenger and would require a second payment/hold expiry policy. A simple route-wide FIFO was also rejected because a released Colombo Fort → Kandy seat may not satisfy an older Kandy → Badulla request; eligibility therefore includes overlapping cancellation impact, whole-segment availability, and class preference before FIFO order is applied.
 
 ## Monorepo
 
