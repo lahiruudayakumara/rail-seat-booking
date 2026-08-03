@@ -193,10 +193,13 @@ export type SavedTravellerInput = {
   phone: string;
 };
 
-export type PassengerPreferences = {
+export type PassengerPreferencesInput = {
   preferredCoachClass: "ANY" | "FIRST" | "SECOND";
   preferredSeatType: "ANY" | "WINDOW" | "AISLE";
   language: "en" | "si" | "ta";
+};
+
+export type PassengerPreferences = PassengerPreferencesInput & {
   updatedAt?: string;
 };
 
