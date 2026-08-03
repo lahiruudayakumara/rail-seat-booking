@@ -8,16 +8,22 @@ import { useSeatSelection } from "@/hooks/use-seat-selection";
 export function SeatSelection() {
   const { t } = useTranslation();
   const { origin, destination } = useJourneySearch();
-  const { runId, selectedSeat, seatsQuery, groupedSeats, handleChooseSeat } =
+  const { runId, selectedSeat, seatsQuery, groupedSeats, preferences, handleChooseSeat } =
     useSeatSelection();
 
   const typedGroupedSeats = groupedSeats as [string, Seat[]][];
+  const preferredCoachClass = preferences?.preferredCoachClass;
   const [activeCoach, setActiveCoach] = useState("");
   useEffect(() => {
     if (!typedGroupedSeats.some(([coach]) => coach === activeCoach)) {
       setActiveCoach(typedGroupedSeats[0]?.[0] ?? "");
     }
   }, [activeCoach, typedGroupedSeats]);
+  useEffect(() => {
+    if (!preferredCoachClass || preferredCoachClass === "ANY") return;
+    const preferredCoach = typedGroupedSeats.find(([, seats]) => seats[0]?.coachClass === preferredCoachClass)?.[0];
+    if (preferredCoach) setActiveCoach(preferredCoach);
+  }, [preferredCoachClass, typedGroupedSeats]);
 
   if (!runId) return null;
 
@@ -35,6 +41,7 @@ export function SeatSelection() {
           <span className="flex items-center gap-1.5"><i className="h-3 w-3 rounded bg-stone-300" />{t("seats.booked")}</span>
         </div>
       </div>
+      {preferences && (preferences.preferredCoachClass !== "ANY" || preferences.preferredSeatType !== "ANY") && <p className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-900">Your saved preferences are applied. Matching coach classes open first and preferred seats are highlighted.</p>}
 
       {seatsQuery.isLoading ? (
         <LoadingSpinner label={t("seats.loading")} />
@@ -72,13 +79,14 @@ export function SeatSelection() {
                 const isSelected = selectedSeat?.id === item.id;
                 const isBooked = item.availabilityStatus === "BOOKED";
                 const isWindow = item.attributes.includes("WINDOW");
+                const isPreferred = preferences?.preferredSeatType !== "ANY" && item.attributes.includes(preferences?.preferredSeatType ?? "");
 
                 return (
                   <button
                     key={item.id}
                     aria-label={`Seat ${item.label}, ${item.coachClass} class, ${isSelected ? t("seats.selected") : isBooked ? t("seats.booked") : item.attributes.join(" ")}`}
                     aria-pressed={isSelected}
-                    className={`seat ${isSelected ? "selected" : isBooked ? "booked" : ""}`}
+                    className={`seat ${isSelected ? "selected" : isBooked ? "booked" : isPreferred ? "ring-2 ring-amber-400 ring-offset-2" : ""}`}
                     disabled={isBooked}
                     onClick={() => handleChooseSeat(item)}
                   >

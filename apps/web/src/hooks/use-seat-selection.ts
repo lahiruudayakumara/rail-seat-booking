@@ -1,7 +1,8 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 import type { Seat } from "@/types";
-import { createHold, getQuote, getSeatMap } from "../api";
+import { createHold, getPassengerPreferences, getQuote, getSeatMap } from "../api";
+import { usePassengerAuth } from "@/auth/use-passenger-auth";
 import { useAppDispatch, useAppSelector } from "../store";
 import { setHold, setQuote, setSelectedSeat } from "../store/slices/booking-slice";
 import { useJourneySearch } from "./use-journey-search";
@@ -12,6 +13,14 @@ export function useSeatSelection() {
   const { selectedSeat, quote, hold } = useAppSelector((state) => state.booking);
   const { originId, destinationId } = useJourneySearch();
   const { runId } = useTrainSelection();
+  const { account } = usePassengerAuth();
+
+  const preferencesQuery = useQuery({
+    queryKey: ["passenger-preferences"],
+    queryFn: getPassengerPreferences,
+    enabled: Boolean(account),
+    staleTime: 60_000,
+  });
 
   const seatsQuery = useQuery({
     queryKey: ["seat-map", runId, originId, destinationId],
@@ -32,13 +41,21 @@ export function useSeatSelection() {
     },
   });
 
-  const groupedSeats = useMemo(() => Object.entries(
-    (seatsQuery.data?.items ?? []).reduce<Record<string, Seat[]>>((acc, seat: Seat) => {
+  const groupedSeats = useMemo(() => {
+    const preferredClass = preferencesQuery.data?.preferredCoachClass;
+    const entries = Object.entries(
+      (seatsQuery.data?.items ?? []).reduce<Record<string, Seat[]>>((acc, seat: Seat) => {
       acc[seat.coachCode] = acc[seat.coachCode] ?? [];
       acc[seat.coachCode].push(seat);
       return acc;
-    }, {}),
-  ), [seatsQuery.data?.items]);
+      }, {}),
+    );
+    entries.forEach(([, seats]) => seats.sort((left, right) => left.label.localeCompare(right.label, undefined, { numeric: true })));
+    return entries.sort(([, left], [, right]) => {
+      if (!preferredClass || preferredClass === "ANY") return 0;
+      return (left[0]?.coachClass === preferredClass ? 0 : 1) - (right[0]?.coachClass === preferredClass ? 0 : 1);
+    });
+  }, [preferencesQuery.data?.preferredCoachClass, seatsQuery.data?.items]);
 
   const handleChooseSeat = (seat: Seat) => {
     if (seat.availabilityStatus === "BOOKED") return;
@@ -56,6 +73,7 @@ export function useSeatSelection() {
     seatsQuery,
     quoteMutation,
     groupedSeats,
+    preferences: preferencesQuery.data,
     handleChooseSeat,
   };
 }

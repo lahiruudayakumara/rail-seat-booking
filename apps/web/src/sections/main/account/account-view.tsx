@@ -8,6 +8,7 @@ import { usePassengerAuth } from "@/auth/use-passenger-auth";
 import { ArrowRight, Button, Calendar, Clock, ConfirmationModal, Eye, EyeOff, LoadingSpinner, Ticket, TrainFront, Users } from "@/components";
 import type { ApiError, Booking, Station, TrainRun } from "@/types";
 import { formatMoney } from "@/utils";
+import { SavedPassengersPreferences } from "./saved-passengers-preferences";
 
 type Mode = "login" | "register";
 
@@ -152,6 +153,7 @@ function SignedInAccount({ account, onLogout }: { account: { fullName: string; e
         <div><p className="section-kicker">PASSENGER ACCOUNT</p><h2 className="font-heading text-3xl font-extrabold text-stone-900">Welcome, {account.fullName}</h2><p className="mt-1 text-sm text-stone-500">{account.email}{account.phone ? ` · ${account.phone}` : ""}</p></div>
         <Button variant="secondary" onClick={onLogout}>Sign out</Button>
       </div>
+      <SavedPassengersPreferences />
       <div className="rounded-2xl border border-stone-200 bg-white p-6 shadow-sm md:p-8">
         <div className="flex flex-wrap items-end justify-between gap-3"><div><p className="section-kicker">MY JOURNEYS</p><h3 className="font-heading text-2xl font-extrabold text-stone-900">Your bookings</h3></div><Button onClick={() => window.location.assign("/")}>Book a new journey</Button></div>
         {bookingsQuery.isLoading && <div className="py-10"><LoadingSpinner label="Loading your bookings" /></div>}

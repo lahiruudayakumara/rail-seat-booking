@@ -1,4 +1,4 @@
-import type { Booking, PassengerAccount, RegisterPassengerRequest } from "@/types";
+import type { Booking, PassengerAccount, PassengerPreferences, RegisterPassengerRequest, SavedTraveller, SavedTravellerInput } from "@/types";
 import { api } from "./api-instance";
 
 export async function registerPassenger(body: RegisterPassengerRequest) {
@@ -23,4 +23,33 @@ export async function getCurrentPassenger() {
 export async function getPassengerBookings() {
   const response = await api.get<{ items: Booking[] }>("/api/v1/passenger/bookings");
   return response.data.items;
+}
+
+export async function getSavedTravellers() {
+  const response = await api.get<{ items: SavedTraveller[] }>("/api/v1/passenger/travellers");
+  return response.data.items;
+}
+
+export async function createSavedTraveller(body: SavedTravellerInput) {
+  const response = await api.post<SavedTraveller>("/api/v1/passenger/travellers", body);
+  return response.data;
+}
+
+export async function updateSavedTraveller(id: string, body: SavedTravellerInput) {
+  const response = await api.put<SavedTraveller>(`/api/v1/passenger/travellers/${id}`, body);
+  return response.data;
+}
+
+export async function deleteSavedTraveller(id: string) {
+  await api.delete(`/api/v1/passenger/travellers/${id}`);
+}
+
+export async function getPassengerPreferences() {
+  const response = await api.get<PassengerPreferences>("/api/v1/passenger/preferences");
+  return response.data;
+}
+
+export async function updatePassengerPreferences(body: PassengerPreferences) {
+  const response = await api.put<PassengerPreferences>("/api/v1/passenger/preferences", body);
+  return response.data;
 }

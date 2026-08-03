@@ -1,12 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
-import type { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 import {
   getCurrentPassenger,
+  getPassengerPreferences,
   loginPassenger,
   logoutPassenger,
   registerPassenger,
 } from "@/api";
+import i18n from "@/i18n";
 import { PassengerAuthContext } from "./use-passenger-auth";
 import type { RegisterPassengerRequest } from "@/types";
 
@@ -25,6 +27,16 @@ export function PassengerAuthProvider({ children }: { children: ReactNode }) {
     retry: false,
     staleTime: 60_000,
   });
+  const preferencesQuery = useQuery({
+    queryKey: ["passenger-preferences"],
+    queryFn: getPassengerPreferences,
+    enabled: Boolean(accountQuery.data),
+    staleTime: 60_000,
+  });
+
+  useEffect(() => {
+    if (preferencesQuery.data?.language) void i18n.changeLanguage(preferencesQuery.data.language);
+  }, [preferencesQuery.data?.language]);
 
   const loginMutation = useMutation({
     mutationFn: (values: { email: string; password: string }) => loginPassenger(values),
@@ -39,6 +51,8 @@ export function PassengerAuthProvider({ children }: { children: ReactNode }) {
     onSuccess: () => {
       queryClient.setQueryData(["passenger-account"], null);
       queryClient.removeQueries({ queryKey: ["passenger-bookings"] });
+      queryClient.removeQueries({ queryKey: ["saved-travellers"] });
+      queryClient.removeQueries({ queryKey: ["passenger-preferences"] });
     },
   });
 
