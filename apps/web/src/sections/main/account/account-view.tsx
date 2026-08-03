@@ -139,6 +139,7 @@ function SignedInAccount({ account, onLogout }: { account: { fullName: string; e
       } as { stations: Record<string, Station>; runs: Record<string, TrainRun> };
     },
   });
+    
   const cancelMutation = useMutation({
     mutationFn: (bookingId: string) => cancelBooking(bookingId, ""),
     onSuccess: () => { setCancelId(undefined); void queryClient.invalidateQueries({ queryKey: ["passenger-bookings"] }); },

@@ -46,6 +46,7 @@ vi.mock("@/api", () => ({
     arrivalAt: "2026-08-03T03:00:00Z",
     status: "SCHEDULED",
   }),
+        
   getAvailableSeats: vi.fn().mockResolvedValue({ items: [] }),
   getSeatMap: vi.fn().mockResolvedValue({ items: [] }),
   getQuote: vi.fn(),
