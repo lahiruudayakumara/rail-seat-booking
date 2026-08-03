@@ -1,0 +1,41 @@
+@baseUrl = {{$dotenv API_BASE_URL}}
+@originStationId = {{$dotenv EXAMPLE_ORIGIN_STATION_ID}}
+@destinationStationId = {{$dotenv EXAMPLE_DESTINATION_STATION_ID}}
+@trainRunId = {{$dotenv EXAMPLE_TRAIN_RUN_ID}}
+@waitlistEntryId = {{$dotenv EXAMPLE_WAITLIST_ENTRY_ID}}
+@waitlistReference = {{$dotenv EXAMPLE_WAITLIST_REFERENCE}}
+@waitlistContact = {{$dotenv EXAMPLE_WAITLIST_CONTACT}}
+@waitlistToken = {{$dotenv EXAMPLE_WAITLIST_TOKEN}}
+
+### Join a sold-out segment waitlist
+# This intentionally returns 409 SEATS_CURRENTLY_AVAILABLE until every matching seat is occupied.
+# Copy id, reference, and managementToken into the matching EXAMPLE_WAITLIST_* values.
+POST {{baseUrl}}/api/v1/waitlist-entries
+Content-Type: application/json
+
+{
+  "trainRunId": "{{trainRunId}}",
+  "originStationId": "{{originStationId}}",
+  "destinationStationId": "{{destinationStationId}}",
+  "fullName": "Example Waitlist Passenger",
+  "email": "{{waitlistContact}}",
+  "phone": "",
+  "preferredCoachClass": "ANY"
+}
+
+### Recover waitlist management access
+# Copy the returned managementToken into EXAMPLE_WAITLIST_TOKEN.
+POST {{baseUrl}}/api/v1/waitlist-entries/access
+Content-Type: application/json
+
+{
+  "reference": "{{waitlistReference}}",
+  "contact": "{{waitlistContact}}"
+}
+
+### Leave the waitlist
+POST {{baseUrl}}/api/v1/waitlist-entries/{{waitlistEntryId}}/cancel
+Authorization: Bearer {{waitlistToken}}
+Content-Type: application/json
+
+{}

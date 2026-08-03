@@ -1,11 +1,15 @@
-@baseUrl = http://localhost:8080
-@originStationId = 20000000-0000-4000-8000-000000000001
-@destinationStationId = 20000000-0000-4000-8000-000000000005
-@trainRunId = replace-with-train-run-uuid
-@seatId = replace-with-available-seat-uuid
-@fareQuoteId = replace-with-fare-quote-uuid
-@bookingId = replace-with-booking-uuid
-@bookingReference = replace-with-booking-reference
+@baseUrl = {{$dotenv API_BASE_URL}}
+@originStationId = {{$dotenv EXAMPLE_ORIGIN_STATION_ID}}
+@destinationStationId = {{$dotenv EXAMPLE_DESTINATION_STATION_ID}}
+@trainRunId = {{$dotenv EXAMPLE_TRAIN_RUN_ID}}
+@seatId = {{$dotenv EXAMPLE_SEAT_ID}}
+@fareQuoteId = {{$dotenv EXAMPLE_FARE_QUOTE_ID}}
+@holdId = {{$dotenv EXAMPLE_HOLD_ID}}
+@holdToken = {{$dotenv EXAMPLE_HOLD_TOKEN}}
+@bookingId = {{$dotenv EXAMPLE_BOOKING_ID}}
+@bookingReference = {{$dotenv EXAMPLE_BOOKING_REFERENCE}}
+@bookingContact = {{$dotenv EXAMPLE_BOOKING_CONTACT}}
+@bookingToken = {{$dotenv EXAMPLE_BOOKING_TOKEN}}
 
 ### Available seats for one segment
 GET {{baseUrl}}/api/v1/train-runs/{{trainRunId}}/available-seats?originStationId={{originStationId}}&destinationStationId={{destinationStationId}}
@@ -15,7 +19,8 @@ Accept: application/json
 GET {{baseUrl}}/api/v1/train-runs/{{trainRunId}}/seat-map?originStationId={{originStationId}}&destinationStationId={{destinationStationId}}
 Accept: application/json
 
-### Create fare quote
+### Create a fare quote
+# Copy the response id into EXAMPLE_FARE_QUOTE_ID.
 POST {{baseUrl}}/api/v1/fare-quotes
 Content-Type: application/json
 
@@ -26,12 +31,24 @@ Content-Type: application/json
   "destinationStationId": "{{destinationStationId}}"
 }
 
-### Confirm booking
-POST {{baseUrl}}/api/v1/bookings
+### Hold the quoted seat
+# Copy id and managementToken into EXAMPLE_HOLD_ID and EXAMPLE_HOLD_TOKEN.
+POST {{baseUrl}}/api/v1/booking-holds
 Content-Type: application/json
-Idempotency-Key: example-booking-request-0001
 
 {
+  "fareQuoteId": "{{fareQuoteId}}"
+}
+
+### Create a payable booking from the hold
+# Copy id, reference, and managementToken into the matching EXAMPLE_BOOKING_* values.
+POST {{baseUrl}}/api/v1/bookings
+Content-Type: application/json
+Idempotency-Key: {{$guid}}
+
+{
+  "holdId": "{{holdId}}",
+  "holdToken": "{{holdToken}}",
   "fareQuoteId": "{{fareQuoteId}}",
   "trainRunId": "{{trainRunId}}",
   "seatId": "{{seatId}}",
@@ -39,17 +56,37 @@ Idempotency-Key: example-booking-request-0001
   "destinationStationId": "{{destinationStationId}}",
   "passenger": {
     "fullName": "Example Passenger",
-    "email": "passenger@example.test",
-    "phone": "+94770000000"
+    "email": "{{bookingContact}}",
+    "phone": ""
   }
 }
 
-### Lookup by reference
-GET {{baseUrl}}/api/v1/bookings/reference/{{bookingReference}}
-Accept: application/json
+### Confirm with the built-in sandbox payment provider
+POST {{baseUrl}}/api/v1/payments/sandbox
+Content-Type: application/json
+Idempotency-Key: {{$guid}}
 
-### Cancel booking
-POST {{baseUrl}}/api/v1/bookings/{{bookingId}}/cancel
+{
+  "bookingId": "{{bookingId}}",
+  "bookingToken": "{{bookingToken}}"
+}
+
+### Verify access using the booking reference and contact
+# Copy the returned managementToken into EXAMPLE_BOOKING_TOKEN when recovering access.
+POST {{baseUrl}}/api/v1/bookings/access
 Content-Type: application/json
 
-{}
+{
+  "reference": "{{bookingReference}}",
+  "contact": "{{bookingContact}}"
+}
+
+### Cancel an accessible booking
+POST {{baseUrl}}/api/v1/bookings/{{bookingId}}/cancel
+Authorization: Bearer {{bookingToken}}
+Content-Type: application/json
+Idempotency-Key: {{$guid}}
+
+{
+  "reason": "Example API cancellation"
+}
