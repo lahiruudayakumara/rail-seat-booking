@@ -23,10 +23,40 @@ func NewHandler(service *Service, logger *slog.Logger) *Handler {
 
 func (h *Handler) Routes(r chi.Router) {
 	r.Post("/payments/sandbox", h.checkout)
+	r.Post("/payments/sandbox/groups", h.checkoutGroup)
 	r.With(httpmiddleware.RateLimit(20, time.Minute)).Post("/payments/payhere", h.startPayHere)
+	r.With(httpmiddleware.RateLimit(10, time.Minute)).Post("/payments/payhere/groups", h.startPayHereGroup)
 	r.Get("/payments/{paymentId}", h.payHereStatus)
 	r.With(httpmiddleware.RateLimit(240, time.Minute)).Post("/webhooks/payhere", h.payHereWebhook)
 	r.With(httpmiddleware.RateLimit(120, time.Minute)).Post("/tickets/verify", h.verifyTicket)
+}
+
+func (h *Handler) startPayHereGroup(w http.ResponseWriter, r *http.Request) {
+	var request PayHereGroupCheckoutRequest
+	if err := httpx.DecodeJSON(w, r, &request); err != nil {
+		httpx.WriteError(w, r, h.logger, err)
+		return
+	}
+	result, err := h.service.StartPayHereGroupCheckout(r.Context(), request, strings.TrimSpace(r.Header.Get("Idempotency-Key")))
+	if err != nil {
+		httpx.WriteError(w, r, h.logger, err)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusCreated, result)
+}
+
+func (h *Handler) checkoutGroup(w http.ResponseWriter, r *http.Request) {
+	var request GroupCheckoutRequest
+	if err := httpx.DecodeJSON(w, r, &request); err != nil {
+		httpx.WriteError(w, r, h.logger, err)
+		return
+	}
+	result, err := h.service.CheckoutGroup(r.Context(), request, strings.TrimSpace(r.Header.Get("Idempotency-Key")), httpx.RequestID(r))
+	if err != nil {
+		httpx.WriteError(w, r, h.logger, err)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusCreated, result)
 }
 
 func (h *Handler) startPayHere(w http.ResponseWriter, r *http.Request) {

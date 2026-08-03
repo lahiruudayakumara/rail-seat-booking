@@ -175,7 +175,12 @@ func (s *Service) HandlePayHereWebhook(ctx context.Context, values map[string][]
 			break
 		}
 		if record.Status != "PENDING" || record.BookingStatus != "HELD" || !time.Now().Before(record.ExpiresAt) {
-			if err = s.repo.UpdatePayHereStatus(ctx, tx, record.PaymentID, record.BookingID, "DISPUTED", notification.PaymentID, false); err != nil {
+			if record.GroupID != nil {
+				err = s.repo.UpdatePayHereGroupStatus(ctx, tx, record.PaymentID, *record.GroupID, "DISPUTED", notification.PaymentID, false)
+			} else {
+				err = s.repo.UpdatePayHereStatus(ctx, tx, record.PaymentID, record.BookingID, "DISPUTED", notification.PaymentID, false)
+			}
+			if err != nil {
 				return apperror.Wrap(err)
 			}
 			_ = s.repo.MarkWebhookProcessed(ctx, tx, notification.EventFingerprint, "payment received after reservation expiry")
@@ -184,20 +189,46 @@ func (s *Service) HandlePayHereWebhook(ctx context.Context, values map[string][]
 			}
 			return apperror.New(409, "PAYMENT_REQUIRES_REVIEW", "Payment arrived after the reservation expired and requires review.", nil)
 		}
-		ticketID := uuid.New()
-		verificationCode := s.tickets.Code(ticketID)
-		codeHash := sha256.Sum256([]byte(verificationCode))
-		if err = s.repo.CompletePayHere(ctx, tx, record.PaymentID, record.BookingID, ticketID, notification.PaymentID, hex.EncodeToString(codeHash[:]), requestID); err != nil {
-			return apperror.Wrap(err)
+		if record.GroupID != nil {
+			_, bookingIDs, groupErr := s.repo.LockGroupPayable(ctx, tx, *record.GroupID)
+			if groupErr != nil {
+				return apperror.Wrap(groupErr)
+			}
+			issues := make([]ticketIssue, 0, len(bookingIDs))
+			for _, bookingID := range bookingIDs {
+				ticketID := uuid.New()
+				codeHash := sha256.Sum256([]byte(s.tickets.Code(ticketID)))
+				issues = append(issues, ticketIssue{ID: ticketID, BookingID: bookingID, CodeHash: hex.EncodeToString(codeHash[:])})
+			}
+			if err = s.repo.CompletePayHereGroup(ctx, tx, record.PaymentID, *record.GroupID, issues, notification.PaymentID, requestID); err != nil {
+				return apperror.Wrap(err)
+			}
+		} else {
+			ticketID := uuid.New()
+			verificationCode := s.tickets.Code(ticketID)
+			codeHash := sha256.Sum256([]byte(verificationCode))
+			if err = s.repo.CompletePayHere(ctx, tx, record.PaymentID, record.BookingID, ticketID, notification.PaymentID, hex.EncodeToString(codeHash[:]), requestID); err != nil {
+				return apperror.Wrap(err)
+			}
 		}
 	case "0":
 		// PayHere is still processing the payment; preserve PENDING.
 	case "-1", "-2":
-		if err = s.repo.UpdatePayHereStatus(ctx, tx, record.PaymentID, record.BookingID, "FAILED", notification.PaymentID, true); err != nil {
+		if record.GroupID != nil {
+			err = s.repo.UpdatePayHereGroupStatus(ctx, tx, record.PaymentID, *record.GroupID, "FAILED", notification.PaymentID, true)
+		} else {
+			err = s.repo.UpdatePayHereStatus(ctx, tx, record.PaymentID, record.BookingID, "FAILED", notification.PaymentID, true)
+		}
+		if err != nil {
 			return apperror.Wrap(err)
 		}
 	case "-3":
-		if err = s.repo.UpdatePayHereStatus(ctx, tx, record.PaymentID, record.BookingID, "DISPUTED", notification.PaymentID, true); err != nil {
+		if record.GroupID != nil {
+			err = s.repo.UpdatePayHereGroupStatus(ctx, tx, record.PaymentID, *record.GroupID, "DISPUTED", notification.PaymentID, true)
+		} else {
+			err = s.repo.UpdatePayHereStatus(ctx, tx, record.PaymentID, record.BookingID, "DISPUTED", notification.PaymentID, true)
+		}
+		if err != nil {
 			return apperror.Wrap(err)
 		}
 	default:
@@ -220,15 +251,38 @@ func (s *Service) PayHereStatus(ctx context.Context, paymentID uuid.UUID, bookin
 	if err != nil {
 		return PayHerePaymentStatus{}, apperror.Wrap(err)
 	}
-	if err = s.access.Verify(bookingToken, record.BookingID); err != nil {
+	tokenTarget := record.BookingID
+	if record.GroupID != nil {
+		tokenTarget = *record.GroupID
+	}
+	if err = s.access.Verify(bookingToken, tokenTarget); err != nil {
 		return PayHerePaymentStatus{}, apperror.New(401, "BOOKING_ACCESS_DENIED", "Booking access verification is required.", nil)
+	}
+	result := PayHerePaymentStatus{PaymentID: record.PaymentID, BookingID: record.BookingID, Status: record.Status, ProviderReference: record.ProviderReference, AmountMinor: record.AmountMinor, Currency: record.Currency, PaidAt: record.PaidAt}
+	if record.GroupID != nil {
+		group, groupErr := s.loadGroup(ctx, s.pool, *record.GroupID)
+		if groupErr != nil {
+			return PayHerePaymentStatus{}, apperror.Wrap(groupErr)
+		}
+		group.ManagementToken = s.access.Sign(group.ID)
+		result.Group = &group
+		result.BookingID = group.ID
+		tickets, ticketErr := s.repo.LoadGroupTickets(ctx, s.pool, group.ID)
+		if ticketErr != nil {
+			return PayHerePaymentStatus{}, apperror.Wrap(ticketErr)
+		}
+		for index := range tickets {
+			tickets[index].VerificationCode = s.tickets.Code(tickets[index].ID)
+		}
+		result.Tickets = tickets
+		return result, nil
 	}
 	booked, err := s.bookings.Load(ctx, s.pool, record.BookingID)
 	if err != nil {
 		return PayHerePaymentStatus{}, apperror.Wrap(err)
 	}
 	booked.ManagementToken = s.access.Sign(booked.ID)
-	result := PayHerePaymentStatus{PaymentID: record.PaymentID, BookingID: record.BookingID, Status: record.Status, ProviderReference: record.ProviderReference, AmountMinor: record.AmountMinor, Currency: record.Currency, PaidAt: record.PaidAt, Booking: booked}
+	result.Booking = &booked
 	if record.TicketID != nil {
 		status := "ACTIVE"
 		if record.TicketStatus != nil {
