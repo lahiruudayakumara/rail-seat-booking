@@ -32,6 +32,7 @@ body:
         - Availability
         - Fares
         - API
+        - Passenger accounts, profiles, or authentication
         - Database or migrations
         - Web interface
         - Containers or CI

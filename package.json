@@ -6,7 +6,11 @@
     "dev": "pnpm --filter @rail/web dev",
     "build": "pnpm --filter @rail/web build",
     "lint": "pnpm --filter @rail/web lint",
+    "lint:openapi": "redocly lint docs/openapi.yaml --extends=spec",
     "typecheck": "pnpm --filter @rail/web typecheck",
     "test": "pnpm --filter @rail/web test"
+  },
+  "devDependencies": {
+    "@redocly/cli": "^2.43.2"
   }
 }

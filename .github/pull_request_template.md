@@ -18,14 +18,17 @@
 - [ ] Formatting, linting, and static analysis pass
 - [ ] API contract/documentation is updated when behavior changes
 - [ ] Concurrent or transactional behavior is covered when applicable
+- [ ] Account ownership and authorization boundaries are tested when applicable
 - [ ] No credentials, passenger data, or other secrets are included
+- [ ] Personal-data collection, logging, and retention implications were reviewed
 
 ## Database and deployment impact
 
 - Migration required: <!-- yes/no; include forward and rollback notes -->
+- Existing-data compatibility tested: <!-- yes/no/not applicable; describe the dataset or migration path -->
 - Configuration change: <!-- yes/no; list new environment variables -->
 - Operational risk and rollback: <!-- describe or write "none" -->
 
 ## Screenshots
 
-<!-- Required for visible UI changes; remove this section otherwise. -->
+<!-- Required for visible UI changes. Include mobile and desktop views; remove this section otherwise. -->
