@@ -111,6 +111,11 @@ test("renders the journey search page", async () => {
   expect(await screen.findByRole("option", { name: "Colombo Fort" })).toBeInTheDocument();
   await user.selectOptions(screen.getByRole("combobox", { name: "Origin Station" }), "station-1");
   expect(screen.getByRole("option", { name: "Kandy" })).toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: "සිංහල" }));
+  expect(
+    screen.getByRole("option", { name: "කොළඹ කොටුව–බදුල්ල" }),
+  ).toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: "English" }));
 });
 
 test("keeps administrator credentials in the browser session", async () => {

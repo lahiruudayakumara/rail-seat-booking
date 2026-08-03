@@ -71,7 +71,7 @@ export function JourneySearch() {
             <option value="">{t("search.routePlaceholder")}</option>
             {routeItems.map((route) => (
               <option key={route.id} value={route.id}>
-                {route.name}
+                {t(`routes.${route.code}`, route.name)}
               </option>
             ))}
           </select>
