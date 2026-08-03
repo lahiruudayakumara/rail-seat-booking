@@ -24,6 +24,25 @@ PAYHERE_CANCEL_URL=http://localhost:3000/payment/cancel
 PAYHERE_NOTIFY_URL=https://your-public-api.example/api/v1/webhooks/payhere
 ```
 
+The callback must stay reachable for the complete checkout. Account-less
+`trycloudflare.com` URLs are temporary and change whenever the tunnel is
+recreated. Start the tunnel first, copy its current HTTPS URL into
+`PAYHERE_NOTIFY_URL`, and then recreate the API container. The API performs a
+reachability check before redirecting a passenger to PayHere and refuses to
+create a payment when the callback is unavailable.
+
+For a quick local Sandbox tunnel using Docker:
+
+```bash
+docker run -d --name rail-payhere-tunnel --restart unless-stopped \
+  cloudflare/cloudflared:latest tunnel --no-autoupdate \
+  --url http://host.docker.internal:8080
+docker logs rail-payhere-tunnel
+docker compose up -d --force-recreate api web
+```
+
+Use a named tunnel and stable hostname for shared or production-like environments.
+
 `PAYMENT_PROVIDER` selects the API integration and `VITE_PAYMENT_PROVIDER` selects the matching browser flow. Keep them aligned. The merchant secret is supplied only to the API container and is never a frontend build argument.
 
 Start everything:

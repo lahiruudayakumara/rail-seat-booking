@@ -83,6 +83,9 @@ func (s *Service) StartPayHereGroupCheckout(ctx context.Context, request PayHere
 	if s.payHere == nil || !s.payHere.Enabled() {
 		return PayHereCheckoutResponse{}, apperror.New(503, "PAYHERE_NOT_CONFIGURED", "PayHere checkout is not configured.", nil)
 	}
+	if err := s.payHere.ValidateNotifyURL(ctx); err != nil {
+		return PayHereCheckoutResponse{}, apperror.New(503, "PAYHERE_CALLBACK_UNREACHABLE", "PayHere checkout is temporarily unavailable because its verified callback cannot reach this server. Start or repair the public HTTPS tunnel, then try again; no payment was created.", nil)
+	}
 	request.BillingAddress = strings.TrimSpace(request.BillingAddress)
 	request.City = strings.TrimSpace(request.City)
 	if len(request.BillingAddress) < 3 || len(request.BillingAddress) > 200 || len(request.City) < 2 || len(request.City) > 80 {

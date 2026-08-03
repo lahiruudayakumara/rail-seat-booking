@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { clearStoredPayHereAccess, getPayHerePayment, getStoredPayHereAccess } from "@/api";
-import { Button, Check, LoadingSpinner, RefreshCw } from "@/components";
+import { Button, Check, RefreshCw } from "@/components";
 import { BookingConfirmation } from "@/sections/main/booking/booking-confirmation";
 import { setBooking, setBookingGroup, setGroupTickets, setTicket } from "@/store/slices/booking-slice";
 import { useAppDispatch, useAppSelector } from "@/store";
@@ -64,7 +64,7 @@ export function PaymentReturnView({ cancelled = false }: { cancelled?: boolean }
   }
 
   if (confirmationDelayed) {
-    return <PaymentState title="Payment confirmation is delayed" body="Do not pay again. PayHere returned you to the booking site, but its verified server notification has not arrived yet. Check again shortly or use your booking reference for support." action={() => { setConfirmationDelayed(false); void paymentQuery.refetch(); }} actionLabel="Check notification again" />;
+    return <PaymentState title="Payment confirmation is delayed" body={`Do not pay again. PayHere returned you to the booking site, but its verified server notification has not arrived yet. Check the status again or give support payment ID ${paymentId}.`} action={() => { void paymentQuery.refetch(); }} actionLabel={paymentQuery.isFetching ? "Checking…" : "Check payment status"} />;
   }
 
   return (
@@ -73,7 +73,7 @@ export function PaymentReturnView({ cancelled = false }: { cancelled?: boolean }
       <p className="section-kicker mt-5">PAYHERE SANDBOX</p>
       <h2 className="font-heading text-3xl font-extrabold text-stone-900">{cancelled ? "Checking the cancelled payment" : "Confirming your payment"}</h2>
       <p className="mt-3 text-sm leading-6 text-stone-600">PayHere sends confirmation directly to our server. Keep this page open while we verify it and issue your ticket.</p>
-      <div className="mt-6"><LoadingSpinner label="Waiting for verified payment notification" /></div>
+      <p className="mt-6 text-sm font-medium text-stone-600">Waiting for verified payment notification</p>
       <button type="button" className="mt-5 text-sm font-bold text-[#6b1724] underline underline-offset-4" onClick={() => paymentQuery.refetch()}>Check now</button>
     </section>
   );
