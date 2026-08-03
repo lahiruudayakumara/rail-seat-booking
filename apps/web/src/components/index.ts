@@ -1,4 +1,5 @@
 export * from "./common/button";
+export * from "./common/confirmation-modal";
 export * from "./common/field";
 export * from "./common/icons";
 export * from "./common/loading-spinner";

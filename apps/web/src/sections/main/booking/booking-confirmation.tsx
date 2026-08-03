@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { QRCodeSVG } from "qrcode.react";
-import { Button, Check, Copy, Download, TrainFront } from "@/components";
+import { Button, Check, ConfirmationModal, Copy, Download, TrainFront } from "@/components";
 import { useBookingFlow } from "@/hooks/use-booking-flow";
 import { formatMoney } from "@/utils";
 
@@ -210,50 +210,28 @@ export function BookingConfirmation() {
                   {t("common.bookAnother")}
                 </Button>
 
-                {!confirmCancel && (
-                  <Button
-                    variant="secondary"
-                    onClick={() => setConfirmCancel(true)}
-                  >
-                    {t("confirmation.cancelButton")}
-                  </Button>
-                )}
-              </div>
-
-              {/* Cancel Confirmation Prompt */}
-              {confirmCancel && (
-                <div
-                  className="mt-5 rounded-xl border border-amber-200 bg-amber-50/90 p-5 text-left shadow-sm"
-                  role="alert"
+                <Button
+                  variant="secondary"
+                  onClick={() => setConfirmCancel(true)}
                 >
-                  <strong className="block text-sm font-bold text-stone-900">
-                    {t("confirmation.cancelConfirmTitle")}
-                  </strong>
-                  <p className="mt-1 text-xs leading-relaxed text-stone-600">
-                    {t("confirmation.cancelConfirmBody")}
-                  </p>
-                  <div className="mt-4 flex flex-wrap gap-3">
-                    <Button
-                      variant="secondary"
-                      onClick={() => setConfirmCancel(false)}
-                    >
-                      {t("confirmation.keepBooking")}
-                    </Button>
-                    <Button
-                      onClick={() => cancelMutation.mutate(booking.id)}
-                      disabled={cancelMutation.isPending}
-                    >
-                      {cancelMutation.isPending
-                        ? t("confirmation.cancelling")
-                        : t("confirmation.confirmCancellation")}
-                    </Button>
-                  </div>
-                </div>
-              )}
+                  {t("confirmation.cancelButton")}
+                </Button>
+              </div>
             </div>
           )}
         </div>
       </div>
+      <ConfirmationModal
+        open={confirmCancel && booking.status === "CONFIRMED"}
+        title={t("confirmation.cancelConfirmTitle")}
+        description={t("confirmation.cancelConfirmBody")}
+        confirmLabel={t("confirmation.confirmCancellation")}
+        cancelLabel={t("confirmation.keepBooking")}
+        tone="danger"
+        isPending={cancelMutation.isPending}
+        onClose={() => setConfirmCancel(false)}
+        onConfirm={() => cancelMutation.mutate(booking.id)}
+      />
     </section>
   );
 }

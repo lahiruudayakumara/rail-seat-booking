@@ -1,15 +1,15 @@
-import type { ButtonHTMLAttributes, ReactNode } from "react";
+import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from "react";
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: "primary" | "secondary";
   children: ReactNode;
 }
 
-export function Button({ variant = "primary", className = "", children, ...props }: ButtonProps) {
+export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button({ variant = "primary", className = "", children, ...props }, ref) {
   const baseClass = variant === "primary" ? "primary-button" : "secondary-button";
   return (
-    <button className={`${baseClass} ${className}`.trim()} {...props}>
+    <button ref={ref} className={`${baseClass} ${className}`.trim()} {...props}>
       {children}
     </button>
   );
-}
+});
