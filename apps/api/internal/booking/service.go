@@ -22,10 +22,11 @@ type Service struct {
 	access       *AccessSigner
 	holdTTL      time.Duration
 	cancellation CancellationProcessor
+	notifier     AvailabilityNotifier
 }
 
-func NewService(pool *pgxpool.Pool, repo *Repository, access *AccessSigner, cancellation CancellationProcessor, holdTTL time.Duration) *Service {
-	return &Service{pool: pool, repo: repo, access: access, cancellation: cancellation, holdTTL: holdTTL}
+func NewService(pool *pgxpool.Pool, repo *Repository, access *AccessSigner, cancellation CancellationProcessor, notifier AvailabilityNotifier, holdTTL time.Duration) *Service {
+	return &Service{pool: pool, repo: repo, access: access, cancellation: cancellation, notifier: notifier, holdTTL: holdTTL}
 }
 
 func (s *Service) CreateHold(ctx context.Context, request HoldRequest, requestID string) (Hold, error) {
@@ -263,6 +264,11 @@ func (s *Service) Cancel(ctx context.Context, id uuid.UUID, token, reason, reque
 		}
 		if err = s.repo.Cancel(ctx, tx, id); err != nil {
 			return Booking{}, apperror.Wrap(err)
+		}
+		if s.notifier != nil {
+			if err = s.notifier.NotifyNext(ctx, tx, id, requestID); err != nil {
+				return Booking{}, apperror.Wrap(err)
+			}
 		}
 		if err = s.repo.InsertAudit(ctx, tx, uuid.New(), id, "BOOKING_CANCELLED", requestID); err != nil {
 			return Booking{}, apperror.Wrap(err)
