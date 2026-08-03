@@ -11,6 +11,11 @@ export const routeApi = {
     const res = await api.get<{ items: Station[] }>(`/api/v1/routes/${routeId}/stations`);
     return res.data;
   },
+
+  getStations: async () => {
+    const res = await api.get<{ items: Station[] }>("/api/v1/stations");
+    return res.data;
+  },
 };
 
 export function getRoutes() {
@@ -19,6 +24,10 @@ export function getRoutes() {
 
 export function getRouteStations(routeId: string) {
   return routeApi.getRouteStations(routeId);
+}
+
+export function getStations() {
+  return routeApi.getStations();
 }
 
 export default routeApi;
