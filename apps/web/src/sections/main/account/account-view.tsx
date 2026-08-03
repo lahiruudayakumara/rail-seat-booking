@@ -5,7 +5,7 @@ import { useId, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { cancelBooking, getPassengerBookings, getStations, getTrainRun } from "@/api";
 import { usePassengerAuth } from "@/auth/use-passenger-auth";
-import { ArrowRight, Button, Calendar, Clock, Eye, EyeOff, LoadingSpinner, Ticket, TrainFront, Users } from "@/components";
+import { ArrowRight, Button, Calendar, Clock, ConfirmationModal, Eye, EyeOff, LoadingSpinner, Ticket, TrainFront, Users } from "@/components";
 import type { ApiError, Booking, Station, TrainRun } from "@/types";
 import { formatMoney } from "@/utils";
 
@@ -144,6 +144,7 @@ function SignedInAccount({ account, onLogout }: { account: { fullName: string; e
     mutationFn: (bookingId: string) => cancelBooking(bookingId, ""),
     onSuccess: () => { setCancelId(undefined); void queryClient.invalidateQueries({ queryKey: ["passenger-bookings"] }); },
   });
+  const cancellingBooking = bookingsQuery.data?.find((booking) => booking.id === cancelId);
 
   return (
     <section className="grid gap-6">
@@ -164,31 +165,33 @@ function SignedInAccount({ account, onLogout }: { account: { fullName: string; e
               origin={journeyDetailsQuery.data?.stations[booking.originStationId]}
               destination={journeyDetailsQuery.data?.stations[booking.destinationStationId]}
               run={journeyDetailsQuery.data?.runs[booking.trainRunId]}
-              cancelling={cancelId === booking.id}
-              cancellationPending={cancelMutation.isPending}
-              cancellationError={cancelMutation.isError ? errorMessage(cancelMutation.error) : undefined}
-              onCancel={() => setCancelId(booking.id)}
-              onKeep={() => setCancelId(undefined)}
-              onConfirmCancel={() => cancelMutation.mutate(booking.id)}
+              onCancel={() => { cancelMutation.reset(); setCancelId(booking.id); }}
             />
           ))}
         </div>
       </div>
+      <ConfirmationModal
+        open={Boolean(cancellingBooking)}
+        title="Cancel and refund this booking?"
+        description={`Booking ${cancellingBooking?.reference ?? ""} will be cancelled and its seat released for this journey segment. This action cannot be undone.`}
+        confirmLabel="Confirm cancellation"
+        cancelLabel="Keep booking"
+        tone="danger"
+        isPending={cancelMutation.isPending}
+        error={cancelMutation.isError ? errorMessage(cancelMutation.error) : undefined}
+        onClose={() => { cancelMutation.reset(); setCancelId(undefined); }}
+        onConfirm={() => { if (cancelId) cancelMutation.mutate(cancelId); }}
+      />
     </section>
   );
 }
 
-function JourneyTicket({ booking, origin, destination, run, cancelling, cancellationPending, cancellationError, onCancel, onKeep, onConfirmCancel }: {
+function JourneyTicket({ booking, origin, destination, run, onCancel }: {
   booking: Booking;
   origin?: Station;
   destination?: Station;
   run?: TrainRun;
-  cancelling: boolean;
-  cancellationPending: boolean;
-  cancellationError?: string;
   onCancel: () => void;
-  onKeep: () => void;
-  onConfirmCancel: () => void;
 }) {
   const departure = run ? new Date(run.departureAt) : undefined;
   const arrival = run ? new Date(run.arrivalAt) : undefined;
@@ -249,11 +252,7 @@ function JourneyTicket({ booking, origin, destination, run, cancelling, cancella
 
       {booking.status === "CONFIRMED" && (
         <footer className="border-t border-stone-100 bg-white px-5 py-4 md:px-6">
-          {!cancelling ? (
-            <div className="flex flex-wrap items-center justify-between gap-3"><p className="text-xs leading-5 text-stone-500">Plans changed? Review the refund before cancelling this journey.</p><button type="button" className="text-sm font-bold text-red-700 underline decoration-red-200 underline-offset-4 hover:text-red-800" onClick={onCancel}>Cancel booking</button></div>
-          ) : (
-            <div className="rounded-xl border border-amber-200 bg-amber-50 p-4"><p className="text-sm font-extrabold text-stone-900">Cancel and refund this booking?</p><p className="mt-1 text-xs leading-5 text-stone-600">The seat will be released for this journey segment.</p><div className="mt-3 flex flex-wrap gap-2"><Button variant="secondary" onClick={onKeep}>Keep booking</Button><Button disabled={cancellationPending} onClick={onConfirmCancel}>{cancellationPending ? "Cancelling…" : "Confirm cancellation"}</Button></div>{cancellationError && <p className="mt-2 text-xs font-semibold text-red-700">{cancellationError}</p>}</div>
-          )}
+          <div className="flex flex-wrap items-center justify-between gap-3"><p className="text-xs leading-5 text-stone-500">Plans changed? Review the refund before cancelling this journey.</p><button type="button" className="text-sm font-bold text-red-700 underline decoration-red-200 underline-offset-4 hover:text-red-800" onClick={onCancel}>Cancel booking</button></div>
         </footer>
       )}
     </article>
