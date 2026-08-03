@@ -4,7 +4,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { clearStoredPayHereAccess, getPayHerePayment, getStoredPayHereAccess } from "@/api";
 import { Button, Check, LoadingSpinner, RefreshCw } from "@/components";
 import { BookingConfirmation } from "@/sections/main/booking/booking-confirmation";
-import { setBooking, setTicket } from "@/store/slices/booking-slice";
+import { setBooking, setBookingGroup, setGroupTickets, setTicket } from "@/store/slices/booking-slice";
 import { useAppDispatch, useAppSelector } from "@/store";
 
 export function PaymentReturnView({ cancelled = false }: { cancelled?: boolean }) {
@@ -12,7 +12,7 @@ export function PaymentReturnView({ cancelled = false }: { cancelled?: boolean }
   const [params] = useSearchParams();
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
-  const confirmedBooking = useAppSelector((state) => state.booking.booking);
+  const { booking: confirmedBooking, group: confirmedGroup } = useAppSelector((state) => state.booking);
   const paymentId = params.get("paymentId") ?? "";
   const access = paymentId ? getStoredPayHereAccess(paymentId) : undefined;
   const paymentQuery = useQuery({
@@ -24,9 +24,14 @@ export function PaymentReturnView({ cancelled = false }: { cancelled?: boolean }
   });
 
   useEffect(() => {
-    if (paymentQuery.data?.status !== "PAID" || !paymentQuery.data.ticket) return;
-    dispatch(setBooking(paymentQuery.data.booking));
-    dispatch(setTicket(paymentQuery.data.ticket));
+    if (paymentQuery.data?.status !== "PAID") return;
+    if (paymentQuery.data.group && paymentQuery.data.tickets?.length) {
+      dispatch(setBookingGroup(paymentQuery.data.group));
+      dispatch(setGroupTickets(paymentQuery.data.tickets));
+    } else if (paymentQuery.data.booking && paymentQuery.data.ticket) {
+      dispatch(setBooking(paymentQuery.data.booking));
+      dispatch(setTicket(paymentQuery.data.ticket));
+    } else return;
     clearStoredPayHereAccess(paymentId);
   }, [dispatch, paymentId, paymentQuery.data]);
 
@@ -39,7 +44,7 @@ export function PaymentReturnView({ cancelled = false }: { cancelled?: boolean }
     return () => window.clearTimeout(timer);
   }, [paymentQuery.data?.status]);
 
-  if (confirmedBooking && paymentQuery.data?.status === "PAID") return <BookingConfirmation />;
+  if ((confirmedBooking || confirmedGroup) && paymentQuery.data?.status === "PAID") return <BookingConfirmation />;
 
   if (!paymentId || !access) {
     return <PaymentState title="Payment session unavailable" body="This payment session is no longer available in this browser. Use your booking reference to check the reservation." action={() => navigate("/lookup")} actionLabel="Lookup booking" />;

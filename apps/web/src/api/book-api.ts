@@ -1,5 +1,5 @@
 import { api } from "./api-instance";
-import type { Booking, BookingHold, CheckoutResult, CreateBookingRequest, FareQuote, PayHereCheckoutSession, PayHerePaymentStatus, Seat } from "@/types";
+import type { Booking, BookingGroup, BookingHold, CheckoutResult, CreateBookingGroupRequest, CreateBookingRequest, FareQuote, GroupCheckoutResult, PayHereCheckoutSession, PayHerePaymentStatus, Seat } from "@/types";
 
 export const paymentProvider = import.meta.env.VITE_PAYMENT_PROVIDER === "payhere" ? "payhere" : "sandbox";
 
@@ -38,10 +38,23 @@ export const bookApi = {
     return res.data;
   },
 
+  releaseHold: async (holdId: string, holdToken: string) => {
+    await api.delete(`/api/v1/booking-holds/${holdId}`, {
+      headers: { Authorization: `Bearer ${holdToken}` },
+    });
+  },
+
   createBooking: async (body: CreateBookingRequest) => {
     const idempotencyKey = crypto.randomUUID();
     const res = await api.post<Booking>("/api/v1/bookings", body, {
       headers: { "Idempotency-Key": idempotencyKey },
+    });
+    return res.data;
+  },
+
+  createBookingGroup: async (body: CreateBookingGroupRequest) => {
+    const res = await api.post<BookingGroup>("/api/v1/booking-groups", body, {
+      headers: { "Idempotency-Key": crypto.randomUUID() },
     });
     return res.data;
   },
@@ -55,10 +68,28 @@ export const bookApi = {
     return res.data;
   },
 
+  checkoutSandboxGroup: async (groupId: string, groupToken: string) => {
+    const res = await api.post<GroupCheckoutResult>(
+      "/api/v1/payments/sandbox/groups",
+      { groupId, groupToken },
+      { headers: { "Idempotency-Key": crypto.randomUUID() } },
+    );
+    return res.data;
+  },
+
   startPayHereCheckout: async (bookingId: string, bookingToken: string, billingAddress: string, city: string) => {
     const res = await api.post<PayHereCheckoutSession>(
       "/api/v1/payments/payhere",
       { bookingId, bookingToken, billingAddress, city },
+      { headers: { "Idempotency-Key": crypto.randomUUID() } },
+    );
+    return res.data;
+  },
+
+  startPayHereGroupCheckout: async (groupId: string, groupToken: string, billingAddress: string, city: string) => {
+    const res = await api.post<PayHereCheckoutSession>(
+      "/api/v1/payments/payhere/groups",
+      { groupId, groupToken, billingAddress, city },
       { headers: { "Idempotency-Key": crypto.randomUUID() } },
     );
     return res.data;
@@ -108,16 +139,32 @@ export function createHold(fareQuoteId: string) {
   return bookApi.createHold(fareQuoteId);
 }
 
+export function releaseHold(holdId: string, holdToken: string) {
+  return bookApi.releaseHold(holdId, holdToken);
+}
+
 export function createBooking(body: CreateBookingRequest) {
   return bookApi.createBooking(body);
+}
+
+export function createBookingGroup(body: CreateBookingGroupRequest) {
+  return bookApi.createBookingGroup(body);
 }
 
 export function checkoutSandbox(bookingId: string, bookingToken: string) {
   return bookApi.checkoutSandbox(bookingId, bookingToken);
 }
 
+export function checkoutSandboxGroup(groupId: string, groupToken: string) {
+  return bookApi.checkoutSandboxGroup(groupId, groupToken);
+}
+
 export function startPayHereCheckout(bookingId: string, bookingToken: string, billingAddress: string, city: string) {
   return bookApi.startPayHereCheckout(bookingId, bookingToken, billingAddress, city);
+}
+
+export function startPayHereGroupCheckout(groupId: string, groupToken: string, billingAddress: string, city: string) {
+  return bookApi.startPayHereGroupCheckout(groupId, groupToken, billingAddress, city);
 }
 
 export function getPayHerePayment(paymentId: string, bookingToken: string) {

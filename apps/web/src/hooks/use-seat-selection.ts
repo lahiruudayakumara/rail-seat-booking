@@ -1,16 +1,16 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 import type { Seat } from "@/types";
-import { createHold, getPassengerPreferences, getQuote, getSeatMap } from "../api";
+import { createHold, getPassengerPreferences, getQuote, getSeatMap, releaseHold } from "../api";
 import { usePassengerAuth } from "@/auth/use-passenger-auth";
 import { useAppDispatch, useAppSelector } from "../store";
-import { setHold, setQuote, setSelectedSeat } from "../store/slices/booking-slice";
+import { addSeatSelection, removeSeatSelection } from "../store/slices/booking-slice";
 import { useJourneySearch } from "./use-journey-search";
 import { useTrainSelection } from "./use-train-selection";
 
 export function useSeatSelection() {
   const dispatch = useAppDispatch();
-  const { selectedSeat, quote, hold } = useAppSelector((state) => state.booking);
+  const { selectedSeat, selectedSeats, quote, hold } = useAppSelector((state) => state.booking);
   const { originId, destinationId } = useJourneySearch();
   const { runId } = useTrainSelection();
   const { account } = usePassengerAuth();
@@ -29,16 +29,21 @@ export function useSeatSelection() {
   });
 
   const quoteMutation = useMutation({
-    mutationFn: async (seatId: string) => {
-      const nextQuote = await getQuote({ runId, originStationId: originId, destinationStationId: destinationId, seatId });
+    mutationFn: async (seat: Seat) => {
+      const nextQuote = await getQuote({ runId, originStationId: originId, destinationStationId: destinationId, seatId: seat.id });
       const nextHold = await createHold(nextQuote.id);
-      return { quote: nextQuote, hold: nextHold };
+      return { seat, quote: nextQuote, hold: nextHold };
     },
     onSuccess: (data) => {
-      dispatch(setQuote(data.quote));
-      dispatch(setHold(data.hold));
+      dispatch(addSeatSelection(data));
       void seatsQuery.refetch();
     },
+  });
+
+  const releaseMutation = useMutation({
+    mutationFn: ({ holdId, holdToken }: { holdId: string; holdToken: string }) =>
+      releaseHold(holdId, holdToken),
+    onSettled: () => void seatsQuery.refetch(),
   });
 
   const groupedSeats = useMemo(() => {
@@ -58,20 +63,28 @@ export function useSeatSelection() {
   }, [preferencesQuery.data?.preferredCoachClass, seatsQuery.data?.items]);
 
   const handleChooseSeat = (seat: Seat) => {
-    if (seat.availabilityStatus === "BOOKED") return;
-    dispatch(setSelectedSeat(seat));
-    dispatch(setQuote(undefined));
-    dispatch(setHold(undefined));
-    quoteMutation.mutate(seat.id);
+    const selected = selectedSeats.find((item) => item.seat.id === seat.id);
+    if (selected) {
+      dispatch(removeSeatSelection(seat.id));
+      releaseMutation.mutate({
+        holdId: selected.hold.id,
+        holdToken: selected.hold.managementToken,
+      });
+      return;
+    }
+    if (seat.availabilityStatus === "BOOKED" || selectedSeats.length >= 6) return;
+    quoteMutation.mutate(seat);
   };
 
   return {
     runId,
     selectedSeat,
+    selectedSeats,
     quote,
     hold,
     seatsQuery,
     quoteMutation,
+    releaseMutation,
     groupedSeats,
     preferences: preferencesQuery.data,
     handleChooseSeat,

@@ -8,11 +8,11 @@ import { useAppSelector } from "@/store";
 
 
 const BookingView = () => {
-  const booking = useAppSelector((state) => state.booking.booking);
+  const { booking, group } = useAppSelector((state) => state.booking);
   return (
     <div className="flex flex-col gap-6">
       <BookingProgress />
-      {booking ? (
+      {booking || group ? (
         <BookingConfirmation />
       ) : (
         <>

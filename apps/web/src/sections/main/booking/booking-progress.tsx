@@ -5,15 +5,15 @@ const steps = ["Journey", "Train", "Seat", "Passenger"];
 
 export function BookingProgress() {
   const searched = useAppSelector((state) => state.search.searched);
-  const { runId, selectedSeat, booking } = useAppSelector((state) => state.booking);
-  const current = booking ? 4 : selectedSeat ? 3 : runId ? 2 : searched ? 1 : 0;
+  const { runId, selectedSeat, booking, group } = useAppSelector((state) => state.booking);
+  const current = booking || group ? 4 : selectedSeat ? 3 : runId ? 2 : searched ? 1 : 0;
 
   return (
     <nav className="panel px-4 py-4 md:px-7" aria-label="Booking progress">
       <ol className="grid grid-cols-4 gap-1">
         {steps.map((step, index) => {
-          const complete = index < current || Boolean(booking);
-          const active = index === current && !booking;
+          const complete = index < current || Boolean(booking || group);
+          const active = index === current && !booking && !group;
           return (
             <li key={step} className="relative flex flex-col items-center text-center">
               {index > 0 && <span className={`absolute right-1/2 top-4 h-0.5 w-full ${index <= current ? "bg-[#851e2e]" : "bg-stone-200"}`} aria-hidden="true" />}

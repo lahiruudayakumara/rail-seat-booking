@@ -4,11 +4,13 @@ import axios from "axios";
 import { useForm } from "react-hook-form";
 import { useEffect } from "react";
 import { z } from "zod";
-import type { ApiError } from "@/types";
-import { cancelBooking, checkoutSandbox, createBooking, paymentProvider, redirectToPayHere, startPayHereCheckout } from "../api";
+import type { ApiError, CreateBookingRequest } from "@/types";
+import { cancelBooking, checkoutSandbox, checkoutSandboxGroup, createBooking, createBookingGroup, paymentProvider, redirectToPayHere, startPayHereCheckout, startPayHereGroupCheckout } from "../api";
 import { useAppDispatch, useAppSelector } from "../store";
 import {
   setBooking,
+  setBookingGroup,
+  setGroupTickets,
   setHold,
   setQuote,
   setRunId,
@@ -45,7 +47,7 @@ export type PassengerFormValues = z.infer<typeof passengerSchema>;
 
 export function useBookingFlow() {
   const dispatch = useAppDispatch();
-  const { selectedSeat, quote, hold, booking, ticket } = useAppSelector((state) => state.booking);
+  const { selectedSeat, selectedSeats, quote, hold, booking, ticket, group, tickets } = useAppSelector((state) => state.booking);
   const { notice } = useAppSelector((state) => state.ui);
   const { runId, seatsQuery } = useSeatSelection();
   const { originId, destinationId } = useJourneySearch();
@@ -115,6 +117,46 @@ export function useBookingFlow() {
     },
   });
 
+  const groupMutation = useMutation({
+    mutationFn: async ({ values, passengers }: { values: PassengerFormValues; passengers: Record<string, CreateBookingRequest["passenger"]> }) => {
+      if (!runId || selectedSeats.length < 2) throw new Error("Select at least two seats for a group booking");
+      const heldGroup = await createBookingGroup({
+        members: selectedSeats.map(({ seat, quote: seatQuote, hold: seatHold }) => ({
+          holdId: seatHold.id,
+          holdToken: seatHold.managementToken,
+          fareQuoteId: seatQuote.id,
+          trainRunId: runId,
+          seatId: seat.id,
+          originStationId: originId,
+          destinationStationId: destinationId,
+          passenger: passengers[seat.id],
+        })),
+      });
+      if (!heldGroup.managementToken) throw new Error("Group payment token missing");
+      if (paymentProvider === "payhere") {
+        const session = await startPayHereGroupCheckout(heldGroup.id, heldGroup.managementToken, values.billingAddress, values.city);
+        return { kind: "group-payhere" as const, session, bookingToken: heldGroup.managementToken };
+      }
+      return { kind: "group-confirmed" as const, result: await checkoutSandboxGroup(heldGroup.id, heldGroup.managementToken) };
+    },
+    onSuccess: (data) => {
+      if (data.kind === "group-payhere") {
+        dispatch(setNotice("Redirecting your group securely to PayHere Sandbox…"));
+        redirectToPayHere(data.session, data.bookingToken);
+        return;
+      }
+      dispatch(setBookingGroup(data.result.group));
+      dispatch(setGroupTickets(data.result.tickets));
+      dispatch(setNotice("Group booking confirmed with one payment and reference."));
+      void seatsQuery.refetch();
+    },
+    onError: (err: Error) => {
+      const message = axios.isAxiosError<ApiError>(err) ? err.response?.data?.message : err.message;
+      dispatch(setNotice(message || "Group booking could not be completed."));
+      if (axios.isAxiosError(err) && err.response?.status === 409) void seatsQuery.refetch();
+    },
+  });
+
   const cancelMutation = useMutation({
     mutationFn: (bookingId: string) => {
       if (!booking?.managementToken) throw new Error("Booking access verification is required");
@@ -140,9 +182,15 @@ export function useBookingFlow() {
     bookingMutation.mutate(values);
   };
 
+  const submitGroup = (values: PassengerFormValues, passengers: Record<string, CreateBookingRequest["passenger"]>) => {
+    groupMutation.mutate({ values, passengers });
+  };
+
   const startOver = () => {
     dispatch(setBooking(undefined));
     dispatch(setTicket(undefined));
+    dispatch(setBookingGroup(undefined));
+    dispatch(setGroupTickets([]));
     dispatch(setSelectedSeat(undefined));
     dispatch(setQuote(undefined));
     dispatch(setHold(undefined));
@@ -157,11 +205,15 @@ export function useBookingFlow() {
     notice,
     booking,
     ticket,
+    group,
+    tickets,
     selectedSeat,
     quote,
     bookingMutation,
+    groupMutation,
     cancelMutation,
     submitPassenger,
+    submitGroup,
     startOver,
   };
 }

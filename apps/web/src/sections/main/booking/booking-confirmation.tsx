@@ -7,12 +7,13 @@ import { formatMoney } from "@/utils";
 
 export function BookingConfirmation() {
   const { t } = useTranslation();
-  const { booking, ticket, cancelMutation, startOver } = useBookingFlow();
+  const { booking, ticket, group, tickets, cancelMutation, startOver } = useBookingFlow();
 
   const [copiedRef, setCopiedRef] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
   const [confirmCancel, setConfirmCancel] = useState(false);
 
+  if (group) return <GroupBookingConfirmation group={group} tickets={tickets} startOver={startOver} />;
   if (!booking) return null;
 
   const handleCopyReference = async () => {
@@ -234,4 +235,20 @@ export function BookingConfirmation() {
       />
     </section>
   );
+}
+
+function GroupBookingConfirmation({ group, tickets, startOver }: { group: import("@/types").BookingGroup; tickets: import("@/types").Ticket[]; startOver: () => void }) {
+  return <section className="mx-auto mt-8 max-w-4xl" aria-live="polite">
+    <div className="overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-xl">
+      <div className="bg-[#6b1724] px-6 py-7 text-center text-white"><div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-white/10"><Check size={30} /></div><p className="mt-3 font-mono text-xs font-bold uppercase tracking-widest text-amber-300">GROUP BOOKING CONFIRMED</p><h2 className="mt-1 font-heading text-3xl font-extrabold md:text-4xl">Your group is travelling together.</h2><p className="mt-2 text-sm text-white/75">One payment, one reference, and an individual ticket for every reserved seat.</p></div>
+      <div className="p-5 sm:p-6 md:p-8">
+        <div className="grid gap-4 rounded-xl border border-stone-200 bg-stone-50 p-4 sm:grid-cols-2"><div><span className="text-[10px] font-extrabold uppercase tracking-wider text-stone-400">Group reference</span><strong className="mt-1 block font-mono text-2xl font-black text-[#6b1724]">{group.reference}</strong></div><div className="sm:text-right"><span className="text-[10px] font-extrabold uppercase tracking-wider text-stone-400">Total paid</span><strong className="mt-1 block text-2xl font-black text-stone-900">{formatMoney(group.fare)}</strong></div></div>
+        <div className="mt-6 grid gap-4 md:grid-cols-2">{group.members.map((member, index) => {
+          const ticket = tickets[index];
+          return <article key={member.booking.id} className="rounded-xl border border-stone-200 p-4"><div className="flex items-start justify-between gap-3"><div><span className="text-[10px] font-extrabold uppercase tracking-wider text-stone-400">Passenger {index + 1}</span><h3 className="mt-0.5 font-heading text-lg font-extrabold text-stone-900">{member.passenger.fullName}</h3><p className="mt-1 text-sm font-bold text-[#6b1724]">Coach {member.booking.seat.coachCode} · Seat {member.booking.seat.label}</p></div>{ticket?.verificationCode && <div className="rounded-lg border border-stone-200 bg-white p-1.5"><QRCodeSVG value={JSON.stringify({ group: group.reference, ticket: ticket.verificationCode, seat: member.booking.seat.label })} size={64} fgColor="#6b1724" level="M" /></div>}</div><div className="mt-3 border-t border-stone-100 pt-3"><span className="text-[10px] font-bold uppercase tracking-wider text-stone-400">Ticket verification code</span><code className="mt-1 block break-all text-[10px] text-stone-600">{ticket?.verificationCode ?? "Issuing ticket…"}</code></div></article>;
+        })}</div>
+        <div className="mt-7 flex justify-center"><Button onClick={startOver}>Book another journey</Button></div>
+      </div>
+    </div>
+  </section>;
 }
