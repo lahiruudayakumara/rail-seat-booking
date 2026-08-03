@@ -286,6 +286,7 @@ paths:
     post:
       tags: [Bookings]
       operationId: accessBooking
+      description: Verifies the booking contact. Email matching is case-insensitive; Sri Lankan phone numbers accept local 077…, 94…, 0094…, or +94… notation.
       requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/BookingAccessRequest'}}}}
       responses:
         '200': {description: Verified booking with a short-lived management token, content: {application/json: {schema: {$ref: '#/components/schemas/Booking'}}}}

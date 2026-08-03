@@ -183,7 +183,7 @@ func (s *Service) ListForAccount(ctx context.Context, accountID uuid.UUID) ([]Bo
 }
 func (s *Service) Access(ctx context.Context, request AccessRequest) (Booking, error) {
 	reference := strings.ToUpper(strings.TrimSpace(request.Reference))
-	contact := strings.TrimSpace(request.Contact)
+	contact := normalizeLookupContact(request.Contact)
 	if reference == "" || contact == "" {
 		return Booking{}, apperror.Validation("access", "Booking reference and email or phone are required.")
 	}
@@ -199,6 +199,27 @@ func (s *Service) Access(ctx context.Context, request AccessRequest) (Booking, e
 		item.ManagementToken = s.access.Sign(item.ID)
 	}
 	return item, err
+}
+
+func normalizeLookupContact(value string) string {
+	value = strings.TrimSpace(value)
+	if strings.Contains(value, "@") {
+		return strings.ToLower(value)
+	}
+
+	compact := strings.NewReplacer(" ", "", "-", "", "(", "", ")", "").Replace(value)
+	switch {
+	case strings.HasPrefix(compact, "0094"):
+		return "+" + strings.TrimPrefix(compact, "00")
+	case strings.HasPrefix(compact, "94") && len(compact) == 11:
+		return "+" + compact
+	case strings.HasPrefix(compact, "0") && len(compact) == 10:
+		return "+94" + compact[1:]
+	case len(compact) == 9 && compact[0] != '+':
+		return "+94" + compact
+	default:
+		return compact
+	}
 }
 func (s *Service) Cancel(ctx context.Context, id uuid.UUID, token, reason, requestID string) (Booking, error) {
 	if err := s.access.Verify(token, id); err != nil {

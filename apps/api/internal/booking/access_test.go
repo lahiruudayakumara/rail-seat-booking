@@ -30,3 +30,24 @@ func TestAccessSignerRejectsExpiredToken(t *testing.T) {
 		t.Fatal("expired token accepted")
 	}
 }
+
+func TestNormalizeLookupContact(t *testing.T) {
+	t.Parallel()
+	tests := map[string]string{
+		" Passenger@Example.COM ": "passenger@example.com",
+		"077 000 0123":            "+94770000123",
+		"077-000-0123":            "+94770000123",
+		"94770000123":             "+94770000123",
+		"0094770000123":           "+94770000123",
+		"+94 (77) 000 0123":       "+94770000123",
+	}
+	for input, want := range tests {
+		input, want := input, want
+		t.Run(input, func(t *testing.T) {
+			t.Parallel()
+			if got := normalizeLookupContact(input); got != want {
+				t.Fatalf("normalizeLookupContact(%q) = %q; want %q", input, got, want)
+			}
+		})
+	}
+}

@@ -3,6 +3,18 @@ import type { Booking, BookingGroup, BookingHold, CheckoutResult, CreateBookingG
 
 export const paymentProvider = import.meta.env.VITE_PAYMENT_PROVIDER === "payhere" ? "payhere" : "sandbox";
 
+export function normalizeBookingLookupContact(contact: string) {
+  const value = contact.trim();
+  if (value.includes("@")) return value.toLocaleLowerCase();
+
+  const compact = value.replace(/[\s()-]/g, "");
+  if (/^0094\d{9}$/.test(compact)) return `+${compact.slice(2)}`;
+  if (/^94\d{9}$/.test(compact)) return `+${compact}`;
+  if (/^0\d{9}$/.test(compact)) return `+94${compact.slice(1)}`;
+  if (/^\d{9}$/.test(compact)) return `+94${compact}`;
+  return compact;
+}
+
 export const bookApi = {
   getAvailableSeats: async (runId: string, originId: string, destinationId: string) => {
     const res = await api.get<{ items: Seat[] }>(
@@ -111,8 +123,8 @@ export const bookApi = {
 
   getBookingByReference: async (reference: string, contact: string) => {
     const res = await api.post<Booking>("/api/v1/bookings/access", {
-      reference: reference.trim(),
-      contact: contact.trim(),
+      reference: reference.trim().toLocaleUpperCase(),
+      contact: normalizeBookingLookupContact(contact),
     });
     return res.data;
   },

@@ -1,24 +1,41 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { QRCodeSVG } from "qrcode.react";
 import { Button, Field, InlineError, TrainFront } from "@/components";
 import { useBookingFlow } from "@/hooks/use-booking-flow";
 import { useBookingLookup } from "@/hooks/use-booking-lookup";
 import { formatMoney } from "@/utils";
+import { usePassengerAuth } from "@/auth/use-passenger-auth";
 
 const LookupView = () => {
   const { t } = useTranslation();
   const { booking, cancelMutation } = useBookingFlow();
   const lookupMutation = useBookingLookup();
+  const { account } = usePassengerAuth();
   const [refInput, setRefInput] = useState("");
   const [contactInput, setContactInput] = useState("");
+  const [contactEdited, setContactEdited] = useState(false);
   const [searched, setSearched] = useState(false);
+  const [submittedReference, setSubmittedReference] = useState("");
+  const [formError, setFormError] = useState("");
+
+  useEffect(() => {
+    if (!contactEdited && !contactInput && account?.email) setContactInput(account.email);
+  }, [account?.email, contactEdited, contactInput]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!refInput.trim() || !contactInput.trim()) return;
+    const reference = refInput.trim().toLocaleUpperCase();
+    const contact = contactInput.trim();
+    if (!reference || !contact) {
+      setSearched(false);
+      setFormError("Enter both the booking reference and booking email or phone.");
+      return;
+    }
+    setFormError("");
+    setSubmittedReference(reference);
     setSearched(true);
-    lookupMutation.mutate({ reference: refInput, contact: contactInput });
+    lookupMutation.mutate({ reference, contact });
   };
 
   return (
@@ -39,9 +56,12 @@ const LookupView = () => {
             <input
               placeholder={t("lookup.placeholder")}
               value={refInput}
+              autoCapitalize="characters"
+              autoComplete="off"
               onChange={(e) => {
                 setRefInput(e.target.value);
                 setSearched(false);
+                setFormError("");
               }}
               className="w-full"
             />
@@ -52,9 +72,13 @@ const LookupView = () => {
             <input
               placeholder={t("lookup.contactPlaceholder")}
               value={contactInput}
+              autoCapitalize="none"
+              autoComplete="email"
               onChange={(e) => {
                 setContactInput(e.target.value);
+                setContactEdited(true);
                 setSearched(false);
+                setFormError("");
               }}
               className="w-full"
             />
@@ -70,12 +94,18 @@ const LookupView = () => {
         </Button>
       </form>
 
+      {formError && <InlineError message={formError} />}
+
+      <p className="mt-3 text-xs leading-5 text-stone-500">
+        Enter the email or phone used for this booking. Sri Lankan phone numbers can use <span className="font-semibold text-stone-700">077…</span> or <span className="font-semibold text-stone-700">+9477…</span> format.
+      </p>
+
       {searched && lookupMutation.isError && (
         <InlineError message={t("lookup.notFound")} />
       )}
 
       {/* Matching Booking Found Result */}
-      {!lookupMutation.isPending && booking && booking.reference.toLowerCase() === refInput.trim().toLowerCase() && (
+      {searched && !lookupMutation.isPending && booking && booking.reference.toLocaleUpperCase() === submittedReference && (
         <div className="mt-8 border-t border-stone-200 pt-6">
           <div className="ticket-card">
             <div className="ticket-header">
