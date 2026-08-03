@@ -5,7 +5,7 @@ interface NoticeBannerProps {
 export function NoticeBanner({ message }: NoticeBannerProps) {
   if (!message) return null;
   return (
-    <div className="notice mt-5" role="alert">
+    <div className="notice mt-5 mb-6" role="alert">
       {message}
     </div>
   );
