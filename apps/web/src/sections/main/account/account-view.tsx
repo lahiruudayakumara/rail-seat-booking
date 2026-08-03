@@ -1,11 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
-import { useState, type FormEvent } from "react";
+import { QRCodeSVG } from "qrcode.react";
+import { useId, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
-import { cancelBooking, getPassengerBookings } from "@/api";
+import { cancelBooking, getPassengerBookings, getStations, getTrainRun } from "@/api";
 import { usePassengerAuth } from "@/auth/use-passenger-auth";
-import { Button, LoadingSpinner, Ticket, Users } from "@/components";
-import type { ApiError } from "@/types";
+import { ArrowRight, Button, Calendar, Clock, Eye, EyeOff, LoadingSpinner, Ticket, TrainFront, Users } from "@/components";
+import type { ApiError, Booking, Station, TrainRun } from "@/types";
 import { formatMoney } from "@/utils";
 
 type Mode = "login" | "register";
@@ -13,6 +14,38 @@ type Mode = "login" | "register";
 function errorMessage(error: unknown) {
   if (axios.isAxiosError<ApiError>(error)) return error.response?.data?.message ?? "Request failed.";
   return error instanceof Error ? error.message : "Request failed.";
+}
+
+function PasswordField({ label, name, autoComplete }: { label: string; name: string; autoComplete: string }) {
+  const [visible, setVisible] = useState(false);
+  const inputId = useId();
+
+  return (
+    <div className="grid min-w-0 gap-1.5 text-sm font-bold text-stone-700">
+      <label htmlFor={inputId}>{label}</label>
+      <div className="relative">
+        <input
+          id={inputId}
+          className="form-input pr-11"
+          type={visible ? "text" : "password"}
+          name={name}
+          autoComplete={autoComplete}
+          minLength={10}
+          maxLength={72}
+          required
+        />
+        <button
+          type="button"
+          className="absolute inset-y-0 right-0 flex w-11 items-center justify-center rounded-r-[10px] text-stone-400 transition hover:bg-stone-50 hover:text-[#6b1724] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#6b1724]"
+          aria-label={`${visible ? "Hide" : "Show"} ${label.toLowerCase()}`}
+          aria-pressed={visible}
+          onClick={() => setVisible((current) => !current)}
+        >
+          {visible ? <EyeOff size={18} aria-hidden="true" /> : <Eye size={18} aria-hidden="true" />}
+        </button>
+      </div>
+    </div>
+  );
 }
 
 export function AccountView() {
@@ -53,13 +86,13 @@ export function AccountView() {
     };
 
     return (
-      <section className="mx-auto max-w-xl overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-xl">
-        <div className="bg-[#6b1724] px-7 py-7 text-white">
+      <section className="mx-auto max-w-2xl overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-xl">
+        <div className="bg-[#6b1724] px-5 py-6 text-white sm:px-7 sm:py-7">
           <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/10"><Users size={22} /></div>
           <h2 className="mt-4 font-heading text-3xl font-extrabold">Passenger account</h2>
           <p className="mt-2 text-sm leading-6 text-white/75">Sign in for faster checkout and private access to all your journeys. Guest booking remains available.</p>
         </div>
-        <div className="p-6 md:p-8">
+        <div className="p-5 sm:p-6 md:p-8">
           <div className="grid grid-cols-2 rounded-xl bg-stone-100 p-1" role="tablist" aria-label="Passenger account access">
             {(["login", "register"] as const).map((item) => (
               <button key={item} type="button" role="tab" aria-selected={mode === item} onClick={() => { setMode(item); setError(""); }} className={`rounded-lg px-4 py-2.5 text-sm font-bold transition ${mode === item ? "bg-white text-[#6b1724] shadow-sm" : "text-stone-500"}`}>
@@ -67,17 +100,17 @@ export function AccountView() {
               </button>
             ))}
           </div>
-          <form className="mt-6 grid gap-4" onSubmit={submit}>
-            {mode === "register" && <label className="grid gap-1.5 text-sm font-bold text-stone-700">Full name<input className="form-input" name="fullName" autoComplete="name" minLength={2} maxLength={120} required /></label>}
-            <label className="grid gap-1.5 text-sm font-bold text-stone-700">Email address<input className="form-input" type="email" name="email" autoComplete="email" required /></label>
-            {mode === "register" && <label className="grid gap-1.5 text-sm font-bold text-stone-700">Phone <span className="font-normal text-stone-400">(optional)</span><input className="form-input" type="tel" name="phone" autoComplete="tel" placeholder="+94770000000" pattern="\+[1-9][0-9]{7,14}" /></label>}
-            <label className="grid gap-1.5 text-sm font-bold text-stone-700">Password<input className="form-input" type="password" name="password" autoComplete={mode === "login" ? "current-password" : "new-password"} minLength={10} maxLength={72} required /></label>
+          <form className={`mt-6 grid gap-4 ${mode === "register" ? "sm:grid-cols-2" : ""}`} onSubmit={submit}>
+            {mode === "register" && <label className="grid min-w-0 gap-1.5 text-sm font-bold text-stone-700"><span>Full name</span><input className="form-input" name="fullName" autoComplete="name" minLength={2} maxLength={120} required /></label>}
+            {mode === "register" && <label className="grid min-w-0 gap-1.5 text-sm font-bold text-stone-700"><span>Phone <span className="font-normal text-stone-400">(optional)</span></span><input className="form-input" type="tel" name="phone" autoComplete="tel" placeholder="+94770000000" pattern="\+[1-9][0-9]{7,14}" /></label>}
+            <label className={`grid min-w-0 gap-1.5 text-sm font-bold text-stone-700 ${mode === "register" ? "sm:col-span-2" : ""}`}><span>Email address</span><input className="form-input" type="email" name="email" autoComplete="email" required /></label>
+            <PasswordField label="Password" name="password" autoComplete={mode === "login" ? "current-password" : "new-password"} />
             {mode === "register" && <>
-              <label className="grid gap-1.5 text-sm font-bold text-stone-700">Confirm password<input className="form-input" type="password" name="confirmPassword" autoComplete="new-password" minLength={10} maxLength={72} required /></label>
-              <p className="-mt-1 text-xs leading-5 text-stone-500">Use 10 or more characters with upper-case, lower-case, and a number.</p>
+              <PasswordField label="Confirm password" name="confirmPassword" autoComplete="new-password" />
+              <p className="-mt-1 text-xs leading-5 text-stone-500 sm:col-span-2">Use 10 or more characters with upper-case, lower-case, and a number.</p>
             </>}
-            {error && <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{error}</p>}
-            <Button type="submit" disabled={submitting}>{submitting ? "Please wait…" : mode === "login" ? "Sign in securely" : "Create passenger account"}</Button>
+            {error && <p className={`rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 ${mode === "register" ? "sm:col-span-2" : ""}`} role="alert">{error}</p>}
+            <Button className={`w-full ${mode === "register" ? "sm:col-span-2" : ""}`} type="submit" disabled={submitting}>{submitting ? "Please wait…" : mode === "login" ? "Sign in securely" : "Create passenger account"}</Button>
           </form>
         </div>
       </section>
@@ -91,6 +124,22 @@ function SignedInAccount({ account, onLogout }: { account: { fullName: string; e
   const queryClient = useQueryClient();
   const [cancelId, setCancelId] = useState<string>();
   const bookingsQuery = useQuery({ queryKey: ["passenger-bookings"], queryFn: getPassengerBookings });
+  const bookingRunIds = [...new Set(bookingsQuery.data?.map((booking) => booking.trainRunId) ?? [])];
+  const journeyDetailsQuery = useQuery({
+    queryKey: ["passenger-journey-details", bookingRunIds],
+    enabled: bookingRunIds.length > 0,
+    queryFn: async () => {
+      const [stationPage, runs] = await Promise.all([
+        getStations(),
+        Promise.all(bookingRunIds.map((runId) => getTrainRun(runId))),
+      ]);
+      return {
+        stations: Object.fromEntries(stationPage.items.map((station) => [station.id, station])),
+        runs: Object.fromEntries(runs.map((run) => [run.id, run])),
+      } as { stations: Record<string, Station>; runs: Record<string, TrainRun> };
+    },
+  });
+    
   const cancelMutation = useMutation({
     mutationFn: (bookingId: string) => cancelBooking(bookingId, ""),
     onSuccess: () => { setCancelId(undefined); void queryClient.invalidateQueries({ queryKey: ["passenger-bookings"] }); },
@@ -107,20 +156,118 @@ function SignedInAccount({ account, onLogout }: { account: { fullName: string; e
         {bookingsQuery.isLoading && <div className="py-10"><LoadingSpinner label="Loading your bookings" /></div>}
         {bookingsQuery.isError && <p className="mt-6 rounded-lg bg-red-50 p-4 text-sm text-red-700">{errorMessage(bookingsQuery.error)}</p>}
         {bookingsQuery.data?.length === 0 && <div className="mt-6 rounded-xl border border-dashed border-stone-300 p-8 text-center"><Ticket className="mx-auto text-stone-400" size={30} /><p className="mt-3 font-bold text-stone-800">No account bookings yet</p><p className="mt-1 text-sm text-stone-500">Your next signed-in reservation will appear here.</p></div>}
-        <div className="mt-6 grid gap-4">
+        <div className="mt-6 grid gap-5">
           {bookingsQuery.data?.map((booking) => (
-            <article key={booking.id} className="rounded-xl border border-stone-200 p-4 md:p-5">
-              <div className="flex flex-wrap items-start justify-between gap-4">
-                <div><span className="text-xs font-bold uppercase tracking-wider text-stone-400">Booking reference</span><strong className="mt-1 block font-mono text-lg text-[#6b1724]">{booking.reference}</strong><p className="mt-2 text-sm text-stone-600">Coach {booking.seat.coachCode} · Seat {booking.seat.label} · {formatMoney(booking.fare)}</p><p className="mt-1 text-xs text-stone-400">Booked {new Date(booking.createdAt).toLocaleDateString()}</p></div>
-                <span className={`rounded-full px-3 py-1 text-xs font-bold ${booking.status === "CONFIRMED" ? "bg-emerald-100 text-emerald-700" : "bg-stone-100 text-stone-600"}`}>{booking.status}</span>
-              </div>
-              {booking.status === "CONFIRMED" && <div className="mt-4 border-t border-stone-100 pt-4">
-                {cancelId !== booking.id ? <button type="button" className="text-sm font-bold text-red-700 underline underline-offset-4" onClick={() => setCancelId(booking.id)}>Cancel booking</button> : <div className="rounded-lg border border-amber-200 bg-amber-50 p-3"><p className="text-sm font-bold text-stone-800">Cancel and refund this booking?</p><div className="mt-3 flex gap-2"><Button variant="secondary" onClick={() => setCancelId(undefined)}>Keep booking</Button><Button disabled={cancelMutation.isPending} onClick={() => cancelMutation.mutate(booking.id)}>{cancelMutation.isPending ? "Cancelling…" : "Confirm cancellation"}</Button></div>{cancelMutation.isError && <p className="mt-2 text-xs text-red-700">{errorMessage(cancelMutation.error)}</p>}</div>}
-              </div>}
-            </article>
+            <JourneyTicket
+              key={booking.id}
+              booking={booking}
+              origin={journeyDetailsQuery.data?.stations[booking.originStationId]}
+              destination={journeyDetailsQuery.data?.stations[booking.destinationStationId]}
+              run={journeyDetailsQuery.data?.runs[booking.trainRunId]}
+              cancelling={cancelId === booking.id}
+              cancellationPending={cancelMutation.isPending}
+              cancellationError={cancelMutation.isError ? errorMessage(cancelMutation.error) : undefined}
+              onCancel={() => setCancelId(booking.id)}
+              onKeep={() => setCancelId(undefined)}
+              onConfirmCancel={() => cancelMutation.mutate(booking.id)}
+            />
           ))}
         </div>
       </div>
     </section>
   );
+}
+
+function JourneyTicket({ booking, origin, destination, run, cancelling, cancellationPending, cancellationError, onCancel, onKeep, onConfirmCancel }: {
+  booking: Booking;
+  origin?: Station;
+  destination?: Station;
+  run?: TrainRun;
+  cancelling: boolean;
+  cancellationPending: boolean;
+  cancellationError?: string;
+  onCancel: () => void;
+  onKeep: () => void;
+  onConfirmCancel: () => void;
+}) {
+  const departure = run ? new Date(run.departureAt) : undefined;
+  const arrival = run ? new Date(run.arrivalAt) : undefined;
+  const travelDate = run?.serviceDate
+    ? new Date(`${run.serviceDate}T00:00:00`).toLocaleDateString("en-LK", { weekday: "short", day: "numeric", month: "short", year: "numeric" })
+    : "Journey date unavailable";
+  const time = (value?: Date) => value?.toLocaleTimeString("en-LK", { hour: "2-digit", minute: "2-digit" }) ?? "—";
+  const statusClass = booking.status === "CONFIRMED"
+    ? "bg-emerald-100 text-emerald-800"
+    : booking.status === "CANCELLED"
+      ? "bg-red-100 text-red-700"
+      : "bg-stone-100 text-stone-700";
+
+  return (
+    <article className="overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-[0_8px_28px_rgba(54,35,28,0.08)]" aria-label={`Booking ${booking.reference}`}>
+      <header className="flex flex-wrap items-center justify-between gap-3 bg-[#6b1724] px-5 py-3 text-white md:px-6">
+        <div className="flex items-center gap-2.5"><TrainFront size={19} /><span className="text-xs font-extrabold uppercase tracking-[0.18em]">Lanka Rail Reserve</span></div>
+        <span className={`rounded-full px-3 py-1 text-[11px] font-extrabold tracking-wide ${statusClass}`}>{booking.status}</span>
+      </header>
+
+      <div className="ticket-body">
+        <div className="ticket-main !items-stretch !p-0">
+          <div className="w-full px-5 py-5 md:px-6 md:py-6">
+            <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
+              <StationPoint station={origin} fallback="Origin" time={time(departure)} />
+              <div className="flex min-w-16 items-center gap-1 text-stone-300" aria-hidden="true"><span className="h-px flex-1 bg-stone-300" /><ArrowRight size={20} className="text-[#6b1724]" /></div>
+              <StationPoint station={destination} fallback="Destination" time={time(arrival)} align="right" />
+            </div>
+
+            <div className="mt-5 flex items-center gap-2 border-t border-stone-100 pt-4 text-sm font-semibold text-stone-600"><Calendar size={16} className="text-[#6b1724]" /><span>{travelDate}</span></div>
+            <dl className="mt-4 grid grid-cols-2 gap-x-5 gap-y-4 sm:grid-cols-4">
+              <TicketDetail label="Coach" value={booking.seat.coachCode} />
+              <TicketDetail label="Seat" value={booking.seat.label} />
+              <TicketDetail label="Class" value={formatCoachClass(booking.seat.coachClass)} />
+              <TicketDetail label="Fare" value={formatMoney(booking.fare)} accent />
+            </dl>
+          </div>
+        </div>
+
+        <div className="ticket-divider" aria-hidden="true"><span className="notch notch-top" /><span className="line" /><span className="notch notch-bottom" /></div>
+
+        <aside className="ticket-stub !w-full !items-start !bg-[#faf7f2] md:!w-52 md:!px-5">
+          <div className="w-full">
+            <span className="block text-[10px] font-extrabold uppercase tracking-[0.16em] text-stone-400">Booking reference</span>
+            <strong className="mt-1 block break-all font-mono text-base font-extrabold text-[#6b1724]">{booking.reference}</strong>
+          </div>
+          <div className="flex w-full items-end justify-between gap-4 md:mt-5 md:items-start">
+            <div>
+            <span className="block text-[10px] font-extrabold uppercase tracking-[0.16em] text-stone-400">Reserved on</span>
+            <span className="mt-1 block text-xs font-bold text-stone-600">{new Date(booking.createdAt).toLocaleDateString("en-LK", { day: "numeric", month: "short", year: "numeric" })}</span>
+            </div>
+            <div className="shrink-0 rounded-lg border border-stone-200 bg-white p-1.5 shadow-sm" aria-label={`QR code for booking ${booking.reference}`}>
+              <QRCodeSVG value={booking.reference} size={58} bgColor="#ffffff" fgColor="#6b1724" level="M" />
+            </div>
+          </div>
+        </aside>
+      </div>
+
+      {booking.status === "CONFIRMED" && (
+        <footer className="border-t border-stone-100 bg-white px-5 py-4 md:px-6">
+          {!cancelling ? (
+            <div className="flex flex-wrap items-center justify-between gap-3"><p className="text-xs leading-5 text-stone-500">Plans changed? Review the refund before cancelling this journey.</p><button type="button" className="text-sm font-bold text-red-700 underline decoration-red-200 underline-offset-4 hover:text-red-800" onClick={onCancel}>Cancel booking</button></div>
+          ) : (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 p-4"><p className="text-sm font-extrabold text-stone-900">Cancel and refund this booking?</p><p className="mt-1 text-xs leading-5 text-stone-600">The seat will be released for this journey segment.</p><div className="mt-3 flex flex-wrap gap-2"><Button variant="secondary" onClick={onKeep}>Keep booking</Button><Button disabled={cancellationPending} onClick={onConfirmCancel}>{cancellationPending ? "Cancelling…" : "Confirm cancellation"}</Button></div>{cancellationError && <p className="mt-2 text-xs font-semibold text-red-700">{cancellationError}</p>}</div>
+          )}
+        </footer>
+      )}
+    </article>
+  );
+}
+
+function StationPoint({ station, fallback, time, align = "left" }: { station?: Station; fallback: string; time: string; align?: "left" | "right" }) {
+  return <div className={align === "right" ? "text-right" : "text-left"}><span className="block font-mono text-2xl font-black tracking-tight text-stone-900">{station?.code ?? "—"}</span><span className="mt-0.5 block text-xs font-bold text-stone-500">{station?.name ?? fallback}</span><span className={`mt-2 flex items-center gap-1 text-xs font-extrabold text-[#6b1724] ${align === "right" ? "justify-end" : "justify-start"}`}><Clock size={13} />{time}</span></div>;
+}
+
+function TicketDetail({ label, value, accent = false }: { label: string; value: string; accent?: boolean }) {
+  return <div><dt className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-stone-400">{label}</dt><dd className={`mt-1 text-sm font-extrabold ${accent ? "text-[#6b1724]" : "text-stone-900"}`}>{value}</dd></div>;
+}
+
+function formatCoachClass(value: string) {
+  return value.toLowerCase().replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 }

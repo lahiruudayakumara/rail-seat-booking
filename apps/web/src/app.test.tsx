@@ -30,7 +30,23 @@ vi.mock("@/api", () => ({
       { id: "station-2", code: "KDY", name: "Kandy", position: 1 },
     ],
   }),
+  getStations: vi.fn().mockResolvedValue({
+    items: [
+      { id: "station-1", code: "FOT", name: "Colombo Fort" },
+      { id: "station-2", code: "KDY", name: "Kandy" },
+    ],
+  }),
   getTrainRuns: vi.fn().mockResolvedValue({ items: [] }),
+  getTrainRun: vi.fn().mockResolvedValue({
+    id: "run-1",
+    routeId: "route-1",
+    trainId: "train-1",
+    serviceDate: "2026-08-03",
+    departureAt: "2026-08-03T00:00:00Z",
+    arrivalAt: "2026-08-03T03:00:00Z",
+    status: "SCHEDULED",
+  }),
+        
   getAvailableSeats: vi.fn().mockResolvedValue({ items: [] }),
   getSeatMap: vi.fn().mockResolvedValue({ items: [] }),
   getQuote: vi.fn(),
