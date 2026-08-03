@@ -9,6 +9,7 @@ export function SeatSelection() {
   const { t } = useTranslation();
   const { origin, destination } = useJourneySearch();
   const { runId, selectedSeats, seatsQuery, quoteMutation, groupedSeats, preferences, handleChooseSeat } =
+        
     useSeatSelection();
 
   const typedGroupedSeats = groupedSeats as [string, Seat[]][];
