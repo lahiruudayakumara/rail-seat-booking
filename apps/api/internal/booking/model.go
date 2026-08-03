@@ -24,6 +24,21 @@ type CreateRequest struct {
 	DestinationStationID uuid.UUID      `json:"destinationStationId"`
 	Passenger            PassengerInput `json:"passenger"`
 }
+
+type GroupMemberRequest struct {
+	HoldID               uuid.UUID      `json:"holdId"`
+	HoldToken            string         `json:"holdToken"`
+	FareQuoteID          uuid.UUID      `json:"fareQuoteId"`
+	TrainRunID           uuid.UUID      `json:"trainRunId"`
+	SeatID               uuid.UUID      `json:"seatId"`
+	OriginStationID      uuid.UUID      `json:"originStationId"`
+	DestinationStationID uuid.UUID      `json:"destinationStationId"`
+	Passenger            PassengerInput `json:"passenger"`
+}
+
+type CreateGroupRequest struct {
+	Members []GroupMemberRequest `json:"members"`
+}
 type HoldRequest struct {
 	FareQuoteID uuid.UUID `json:"fareQuoteId"`
 }
@@ -63,6 +78,22 @@ type Booking struct {
 	CancelledAt          *time.Time     `json:"cancelledAt,omitempty"`
 	ManagementToken      string         `json:"managementToken,omitempty"`
 	Refund               *RefundSummary `json:"refund,omitempty"`
+}
+
+type GroupMember struct {
+	Booking   Booking        `json:"booking"`
+	Passenger PassengerInput `json:"passenger"`
+}
+
+type BookingGroup struct {
+	ID              uuid.UUID     `json:"id"`
+	Reference       string        `json:"reference"`
+	Status          string        `json:"status"`
+	Members         []GroupMember `json:"members"`
+	Fare            fare.Money    `json:"fare"`
+	CreatedAt       time.Time     `json:"createdAt"`
+	ConfirmedAt     *time.Time    `json:"confirmedAt,omitempty"`
+	ManagementToken string        `json:"managementToken,omitempty"`
 }
 type QuoteSnapshot struct {
 	TrainRunID           uuid.UUID

@@ -59,6 +59,31 @@ func (s *Service) CreateHold(ctx context.Context, request HoldRequest, requestID
 	}
 	return Hold{ID: holdID, Status: "HELD", ExpiresAt: expiresAt, ManagementToken: s.access.Sign(holdID)}, nil
 }
+
+func (s *Service) ReleaseHold(ctx context.Context, holdID uuid.UUID, token, requestID string) error {
+	if holdID == uuid.Nil || s.access.Verify(token, holdID) != nil {
+		return apperror.New(401, "HOLD_ACCESS_DENIED", "A valid seat hold is required.", nil)
+	}
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return apperror.Wrap(err)
+	}
+	defer tx.Rollback(ctx)
+	released, err := s.repo.ReleaseUnusedHold(ctx, tx, holdID)
+	if err != nil {
+		return apperror.Wrap(err)
+	}
+	if released {
+		if err = s.repo.InsertAudit(ctx, tx, uuid.New(), holdID, "SEAT_HOLD_RELEASED", requestID); err != nil {
+			return apperror.Wrap(err)
+		}
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return apperror.Wrap(err)
+	}
+	return nil
+}
+
 func (s *Service) Create(ctx context.Context, request CreateRequest, idempotencyKey string, payload []byte, requestID string) (Booking, bool, error) {
 	if len(idempotencyKey) < 16 || len(idempotencyKey) > 128 {
 		return Booking{}, false, apperror.Validation("Idempotency-Key", "Header must contain 16 to 128 characters.")
