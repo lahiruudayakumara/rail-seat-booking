@@ -13,6 +13,7 @@ fi
 
 go vet ./...
 go test -race ./...
+pnpm lint:openapi
 pnpm lint
 pnpm typecheck
 pnpm test

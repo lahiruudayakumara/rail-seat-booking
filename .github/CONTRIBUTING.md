@@ -18,6 +18,7 @@ docker compose up --build
 go test -race ./...
 go vet ./...
 pnpm lint
+pnpm lint:openapi
 pnpm typecheck
 pnpm test
 pnpm build
@@ -28,6 +29,7 @@ Run the commands relevant to the change and record the exact results in the pull
 ## Database changes
 
 - Add a new ordered Goose migration; never edit a migration already applied outside local disposable environments.
+- Verify the latest migration can run `up`, roll back with `down`, and run `up` again against a disposable database.
 - Prefer forward-compatible expand/migrate/contract changes.
 - Keep seed data deterministic and idempotent.
 - Preserve the PostgreSQL exclusion constraint as the final seat-overlap authority.
