@@ -4,13 +4,14 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Provider as ReduxProvider } from "react-redux";
 import { MemoryRouter } from "react-router-dom";
 import { vi } from "vitest";
-import { getBookingByReference, registerPassenger } from "@/api";
+import { createWaitlistEntry, getBookingByReference, registerPassenger } from "@/api";
 import { AppRouter } from "@/routes/router";
 import LookupView from "@/sections/main/lookup/view/lookup-view";
 import { AdminDashboardView } from "@/sections/admin/dashboard-view";
 import { store } from "@/store";
 import { PassengerAuthProvider } from "@/auth/passenger-auth-context";
 import { AccountView } from "@/sections/main/account/account-view";
+import { WaitlistForm } from "@/sections/main/booking/waitlist-form";
 
 vi.mock("@/api", () => ({
   getRoutes: vi.fn().mockResolvedValue({
@@ -83,6 +84,9 @@ vi.mock("@/api", () => ({
     createdAt: "2026-08-03T00:00:00Z",
     managementToken: "test-management-token",
   }),
+  createWaitlistEntry: vi.fn(),
+  accessWaitlistEntry: vi.fn(),
+  cancelWaitlistEntry: vi.fn(),
   getAdminDashboard: vi.fn(),
   getCurrentPassenger: vi.fn().mockResolvedValue(null),
   loginPassenger: vi.fn(),
@@ -192,4 +196,44 @@ test("creates an optional passenger account", async () => {
     password: "ScenicRail2026",
   });
   expect(await screen.findByText(/Welcome, Anura Perera/)).toBeInTheDocument();
+});
+
+test("joins the waitlist for a sold-out journey segment", async () => {
+  vi.mocked(createWaitlistEntry).mockResolvedValueOnce({
+    id: "waitlist-1",
+    reference: "WL-TESTENTRY12",
+    trainRunId: "run-1",
+    originStationId: "station-1",
+    destinationStationId: "station-2",
+    fullName: "Anura Perera",
+    email: "anura@example.com",
+    preferredCoachClass: "ANY",
+    status: "WAITING",
+    createdAt: "2026-08-03T00:00:00Z",
+    managementToken: "waitlist-token",
+  });
+  const user = userEvent.setup();
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
+  render(
+    <QueryClientProvider client={queryClient}>
+      <PassengerAuthProvider>
+        <WaitlistForm trainRunId="run-1" originStationId="station-1" destinationStationId="station-2" />
+      </PassengerAuthProvider>
+    </QueryClientProvider>,
+  );
+
+  await user.type(screen.getByRole("textbox", { name: "Full name" }), "Anura Perera");
+  await user.type(screen.getByRole("textbox", { name: "Email (optional)" }), "anura@example.com");
+  await user.click(screen.getByRole("button", { name: "Join waitlist" }));
+
+  expect(createWaitlistEntry).toHaveBeenCalledWith({
+    trainRunId: "run-1",
+    originStationId: "station-1",
+    destinationStationId: "station-2",
+    fullName: "Anura Perera",
+    email: "anura@example.com",
+    phone: "",
+    preferredCoachClass: "ANY",
+  });
+  expect(await screen.findByText("WL-TESTENTRY12")).toBeInTheDocument();
 });

@@ -64,6 +64,9 @@ type RefundSummary struct {
 type CancellationProcessor interface {
 	Process(context.Context, database.DBTX, uuid.UUID, string, string) (*RefundSummary, error)
 }
+type AvailabilityNotifier interface {
+	NotifyNext(context.Context, database.DBTX, uuid.UUID, string) error
+}
 type Booking struct {
 	ID                   uuid.UUID      `json:"id"`
 	Reference            string         `json:"reference"`

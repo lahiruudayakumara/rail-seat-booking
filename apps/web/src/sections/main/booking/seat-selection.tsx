@@ -4,15 +4,18 @@ import type { Seat } from "@/types";
 import { Button, EmptyState, InlineError, LoadingSpinner, RefreshCw, SectionCard, Ticket } from "@/components";
 import { useJourneySearch } from "@/hooks/use-journey-search";
 import { useSeatSelection } from "@/hooks/use-seat-selection";
+import { WaitlistForm } from "./waitlist-form";
 
 export function SeatSelection() {
   const { t } = useTranslation();
-  const { origin, destination } = useJourneySearch();
+  const { origin, destination, originId, destinationId } = useJourneySearch();
   const { runId, selectedSeats, seatsQuery, quoteMutation, groupedSeats, preferences, handleChooseSeat } =
         
     useSeatSelection();
 
   const typedGroupedSeats = groupedSeats as [string, Seat[]][];
+  const seats = seatsQuery.data?.items ?? [];
+  const fullyBooked = seats.length > 0 && seats.every((seat) => seat.availabilityStatus === "BOOKED");
   const preferredCoachClass = preferences?.preferredCoachClass;
   const [activeCoach, setActiveCoach] = useState("");
   useEffect(() => {
@@ -52,6 +55,13 @@ export function SeatSelection() {
           <InlineError message={t("seats.loadError")} />
           <Button variant="secondary" onClick={() => void seatsQuery.refetch()}><RefreshCw size={16} /> {t("common.tryAgain")}</Button>
         </div>
+      ) : fullyBooked ? (
+        <WaitlistForm
+          trainRunId={runId}
+          originStationId={originId}
+          destinationStationId={destinationId}
+          initialCoachClass={preferences?.preferredCoachClass ?? "ANY"}
+        />
       ) : typedGroupedSeats.length ? (
         <>
           <div className="mb-4 flex gap-2 overflow-x-auto pb-1" role="tablist" aria-label="Reserved coaches">

@@ -15,6 +15,7 @@ tags:
   - {name: Availability}
   - {name: Fares}
   - {name: Bookings}
+  - {name: Waitlist}
   - {name: Payments}
   - {name: Passenger accounts}
   - {name: Administration}
@@ -398,6 +399,43 @@ paths:
         '404': {$ref: '#/components/responses/NotFound'}
         '409': {$ref: '#/components/responses/Conflict'}
         '422': {$ref: '#/components/responses/Unprocessable'}
+  /api/v1/waitlist-entries:
+    post:
+      tags: [Waitlist]
+      operationId: createWaitlistEntry
+      description: Joins the FIFO waitlist only when no reserved seat in the requested class is currently available for the complete segment. An optional passenger session links the entry to the account.
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/CreateWaitlistEntryRequest'}}}}
+      responses:
+        '201': {description: Waitlist entry created with a short-lived management token, headers: {Location: {schema: {type: string}}}, content: {application/json: {schema: {$ref: '#/components/schemas/WaitlistEntry'}}}}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/Unprocessable'}
+        '429': {$ref: '#/components/responses/TooManyRequests'}
+  /api/v1/waitlist-entries/access:
+    post:
+      tags: [Waitlist]
+      operationId: accessWaitlistEntry
+      description: Verifies a waitlist reference against its email or phone and returns a management token.
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/WaitlistAccessRequest'}}}}
+      responses:
+        '200': {description: Verified waitlist entry, content: {application/json: {schema: {$ref: '#/components/schemas/WaitlistEntry'}}}}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '429': {$ref: '#/components/responses/TooManyRequests'}
+  /api/v1/waitlist-entries/{entryId}/cancel:
+    post:
+      tags: [Waitlist]
+      operationId: cancelWaitlistEntry
+      description: Leaves an active waitlist. The management token is obtained when joining or through contact verification.
+      security: [{bearerAuth: []}]
+      parameters:
+        - {name: entryId, in: path, required: true, schema: {type: string, format: uuid}}
+      responses:
+        '200': {description: Cancelled waitlist entry, content: {application/json: {schema: {$ref: '#/components/schemas/WaitlistEntry'}}}}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '409': {$ref: '#/components/responses/Conflict'}
   /api/v1/admin/train-runs/{trainRunId}/dashboard:
     get:
       tags: [Administration]
@@ -517,6 +555,43 @@ components:
       required: [fullName]
       properties: {fullName: {type: string, minLength: 1, maxLength: 120}, email: {type: string, format: email, maxLength: 254}, phone: {type: string, pattern: '^\+[1-9]\d{7,14}$'}}
       anyOf: [{required: [email]}, {required: [phone]}]
+    CreateWaitlistEntryRequest:
+      type: object
+      additionalProperties: false
+      required: [trainRunId, originStationId, destinationStationId, fullName, preferredCoachClass]
+      properties:
+        trainRunId: {type: string, format: uuid}
+        originStationId: {type: string, format: uuid}
+        destinationStationId: {type: string, format: uuid}
+        fullName: {type: string, minLength: 2, maxLength: 120}
+        email: {type: string, format: email, maxLength: 254}
+        phone: {type: string, description: Sri Lankan local notation or E.164 international phone}
+        preferredCoachClass: {type: string, enum: [ANY, FIRST, SECOND], default: ANY}
+      anyOf: [{required: [email]}, {required: [phone]}]
+    WaitlistAccessRequest:
+      type: object
+      additionalProperties: false
+      required: [reference, contact]
+      properties:
+        reference: {type: string, pattern: '^WL-[A-Z2-7]{12}$'}
+        contact: {type: string, minLength: 8, maxLength: 254, description: Email address or phone used when joining}
+    WaitlistEntry:
+      type: object
+      required: [id, reference, trainRunId, originStationId, destinationStationId, fullName, preferredCoachClass, status, createdAt]
+      properties:
+        id: {type: string, format: uuid}
+        reference: {type: string, pattern: '^WL-[A-Z2-7]{12}$'}
+        trainRunId: {type: string, format: uuid}
+        originStationId: {type: string, format: uuid}
+        destinationStationId: {type: string, format: uuid}
+        fullName: {type: string}
+        email: {type: string, format: email}
+        phone: {type: string}
+        preferredCoachClass: {type: string, enum: [ANY, FIRST, SECOND]}
+        status: {type: string, enum: [WAITING, NOTIFIED, CANCELLED, EXPIRED, FULFILLED]}
+        createdAt: {type: string, format: date-time}
+        notifiedAt: {type: string, format: date-time}
+        managementToken: {type: string, description: Short-lived opaque token for leaving this waitlist}
     PassengerRegistration:
       type: object
       additionalProperties: false
