@@ -82,8 +82,6 @@ A **PostgreSQL GiST Exclusion Constraint** natively guarantees that no two activ
   - **PayHere Sandbox Integration** with verified, replay-safe webhook callback handling (`MD5` secret signature validation).
 - **Transactional Outbox Worker**: Reliable background worker delivering asynchronous events (hold expiry, waitlist notifications, SMS/Email alerts) without dual-write inconsistency.
 
----
-
 ## 🛠️ Technology Stack
 
 | Layer | Technology | Purpose |
