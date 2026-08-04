@@ -292,12 +292,12 @@ sequenceDiagram
     ClientB->>API: POST /bookings (Seat S1, range 3-6, Key K2)
     
     par Tx 1 Execution
-        API->>DB: BEGIN TX 1; INSERT Booking A (range 0-4)
+        API->>DB: TX 1 begins and inserts Booking A (range 0-4)
     and Tx 2 Execution
-        API->>DB: BEGIN TX 2; INSERT Booking B (range 3-6)
+        API->>DB: TX 2 begins and inserts Booking B (range 3-6)
     end
 
-    note over DB: GiST Index evaluates range overlap between range 0-4 and range 3-6
+    Note over DB: GiST index evaluates overlap between range 0-4 and range 3-6
 
     DB-->>API: TX 1 COMMITTED (201 Created)
     DB-->>API: TX 2 REJECTED: SQLSTATE 23P01 (Exclusion Violation)
