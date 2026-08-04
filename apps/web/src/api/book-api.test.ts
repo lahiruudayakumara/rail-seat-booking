@@ -26,3 +26,12 @@ test.each([
     contact: expected,
   });
 });
+
+test("routes group references to the group access endpoint", async () => {
+  await getBookingByReference(" gr-testgroup12 ", "077 000 0123");
+
+  expect(api.post).toHaveBeenCalledWith("/api/v1/booking-groups/access", {
+    reference: "GR-TESTGROUP12",
+    contact: "+94770000123",
+  });
+});

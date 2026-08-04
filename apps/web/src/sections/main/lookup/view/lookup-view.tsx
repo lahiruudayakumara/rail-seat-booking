@@ -9,7 +9,7 @@ import { usePassengerAuth } from "@/auth/use-passenger-auth";
 
 const LookupView = () => {
   const { t } = useTranslation();
-  const { booking, cancelMutation } = useBookingFlow();
+  const { booking, group, cancelMutation } = useBookingFlow();
   const lookupMutation = useBookingLookup();
   const { account } = usePassengerAuth();
   const [refInput, setRefInput] = useState("");
@@ -104,7 +104,37 @@ const LookupView = () => {
         <InlineError message={t("lookup.notFound")} />
       )}
 
-      {/* Matching Booking Found Result */}
+      {searched && !lookupMutation.isPending && group && group.reference.toLocaleUpperCase() === submittedReference && (
+        <div className="mt-8 border-t border-stone-200 pt-6">
+          <div className="overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-3 bg-[#6b1724] px-5 py-4 text-white">
+              <div>
+                <span className="text-[10px] font-extrabold uppercase tracking-widest text-amber-300">Group booking</span>
+                <strong className="mt-1 block font-mono text-xl">{group.reference}</strong>
+              </div>
+              <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-bold">{group.status}</span>
+            </div>
+            <div className="p-5">
+              <div className="flex items-center justify-between gap-4 border-b border-stone-200 pb-4">
+                <span className="text-sm font-semibold text-stone-600">{group.members.length} reserved passengers</span>
+                <strong className="text-lg text-[#6b1724]">{formatMoney(group.fare)}</strong>
+              </div>
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                {group.members.map((member, index) => (
+                  <article key={member.booking.id} className="rounded-xl border border-stone-200 bg-stone-50 p-4">
+                    <span className="text-[10px] font-extrabold uppercase tracking-wider text-stone-400">Passenger {index + 1}</span>
+                    <h3 className="mt-1 font-heading text-base font-extrabold text-stone-900">{member.passenger.fullName}</h3>
+                    <p className="mt-1 text-sm font-bold text-[#6b1724]">Coach {member.booking.seat.coachCode} · Seat {member.booking.seat.label}</p>
+                    <span className="mt-3 inline-block rounded-full bg-white px-2.5 py-1 text-[10px] font-extrabold text-stone-600 ring-1 ring-stone-200">{member.booking.status}</span>
+                  </article>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Matching individual booking result */}
       {searched && !lookupMutation.isPending && booking && booking.reference.toLocaleUpperCase() === submittedReference && (
         <div className="mt-8 border-t border-stone-200 pt-6">
           <div className="ticket-card">

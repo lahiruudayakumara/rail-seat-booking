@@ -85,6 +85,8 @@ export type BookingGroup = {
   managementToken?: string;
 };
 
+export type BookingLookupResult = Booking | BookingGroup;
+
 export type CreateBookingGroupRequest = {
   members: Array<CreateBookingRequest & { holdToken: string }>;
 };
