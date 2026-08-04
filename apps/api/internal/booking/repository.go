@@ -187,6 +187,14 @@ func (r *Repository) FindIDByReferenceAndContact(ctx context.Context, db databas
 	err := db.QueryRow(ctx, `SELECT b.id FROM bookings b JOIN passengers p ON p.id=b.passenger_id WHERE b.reference=$1 AND (p.email_normalized=lower($2) OR p.phone_e164=$2)`, reference, contact).Scan(&id)
 	return id, err
 }
+func (r *Repository) FindGroupIDByReferenceAndContact(ctx context.Context, db database.DBTX, reference, contact string) (uuid.UUID, error) {
+	var id uuid.UUID
+	err := db.QueryRow(ctx, `SELECT g.id FROM booking_groups g
+		JOIN bookings lead ON lead.id=g.lead_booking_id
+		JOIN passengers p ON p.id=lead.passenger_id
+		WHERE g.reference=$1 AND (p.email_normalized=lower($2) OR p.phone_e164=$2)`, reference, contact).Scan(&id)
+	return id, err
+}
 func (r *Repository) LockStatus(ctx context.Context, db database.DBTX, id uuid.UUID) (string, time.Time, error) {
 	var status string
 	var departureAt time.Time

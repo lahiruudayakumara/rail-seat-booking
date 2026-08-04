@@ -294,6 +294,17 @@ paths:
         '400': {$ref: '#/components/responses/BadRequest'}
         '404': {$ref: '#/components/responses/NotFound'}
         '429': {$ref: '#/components/responses/TooManyRequests'}
+  /api/v1/booking-groups/access:
+    post:
+      tags: [Bookings]
+      operationId: accessBookingGroup
+      description: Verifies a group reference against the lead passenger contact and returns the complete group with a short-lived management token.
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/BookingGroupAccessRequest'}}}}
+      responses:
+        '200': {description: Verified booking group, content: {application/json: {schema: {$ref: '#/components/schemas/BookingGroup'}}}}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '429': {$ref: '#/components/responses/TooManyRequests'}
   /api/v1/payments/sandbox:
     post:
       tags: [Bookings]
@@ -697,6 +708,13 @@ components:
       properties:
         reference: {type: string, pattern: '^BK-[A-Z0-9]{8,16}$'}
         contact: {type: string, minLength: 8, maxLength: 254, description: Email address or E.164 phone used for the booking}
+    BookingGroupAccessRequest:
+      type: object
+      additionalProperties: false
+      required: [reference, contact]
+      properties:
+        reference: {type: string, pattern: '^GR-[A-Z2-7]{12}$'}
+        contact: {type: string, minLength: 8, maxLength: 254, description: Lead passenger email address or E.164 phone used for the group booking}
     SandboxCheckoutRequest:
       type: object
       additionalProperties: false

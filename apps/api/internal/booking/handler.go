@@ -30,6 +30,7 @@ func (h *Handler) Routes(r chi.Router) {
 	r.With(httpmiddleware.RateLimit(60, time.Minute)).Post("/booking-holds", h.createHold)
 	r.Delete("/booking-holds/{holdId}", h.releaseHold)
 	r.With(httpmiddleware.RateLimit(10, time.Minute)).Post("/bookings/access", h.access)
+	r.With(httpmiddleware.RateLimit(10, time.Minute)).Post("/booking-groups/access", h.accessGroup)
 	r.Post("/bookings/{bookingId}/cancel", h.cancel)
 	r.Get("/passenger/bookings", h.listMine)
 }
@@ -140,6 +141,21 @@ func (h *Handler) access(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.WriteJSON(w, 200, item)
+}
+func (h *Handler) accessGroup(w http.ResponseWriter, r *http.Request) {
+	decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 16<<10))
+	decoder.DisallowUnknownFields()
+	var request AccessRequest
+	if err := decoder.Decode(&request); err != nil {
+		httpx.WriteError(w, r, h.logger, apperror.Validation("body", "Invalid JSON body."))
+		return
+	}
+	item, err := h.service.AccessGroup(r.Context(), request)
+	if err != nil {
+		httpx.WriteError(w, r, h.logger, err)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, item)
 }
 func (h *Handler) cancel(w http.ResponseWriter, r *http.Request) {
 	id, err := httpx.PathUUID(r, "bookingId")

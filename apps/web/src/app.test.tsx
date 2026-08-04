@@ -168,6 +168,68 @@ test("looks up a booking through the backend API", async () => {
   expect(await screen.findByText("BK-TEST1234")).toBeInTheDocument();
 });
 
+test("looks up and displays a group booking reference", async () => {
+  vi.mocked(getBookingByReference).mockResolvedValueOnce({
+    id: "group-1",
+    reference: "GR-TESTGROUP12",
+    status: "CONFIRMED",
+    fare: { amountMinor: 138000, currency: "LKR", currencyScale: 2 },
+    createdAt: "2026-08-03T00:00:00Z",
+    managementToken: "group-management-token",
+    members: [
+      {
+        passenger: { fullName: "Lead Passenger", email: "lead@example.com", phone: "+94770000001" },
+        booking: {
+          id: "booking-group-1",
+          reference: "BK-GROUP0001",
+          status: "CONFIRMED",
+          trainRunId: "run-1",
+          seat: { id: "seat-1", label: "1A", coachId: "coach-1", coachCode: "R1", coachClass: "FIRST", attributes: ["WINDOW"] },
+          originStationId: "station-1",
+          destinationStationId: "station-2",
+          fare: { amountMinor: 69000, currency: "LKR", currencyScale: 2 },
+          createdAt: "2026-08-03T00:00:00Z",
+        },
+      },
+      {
+        passenger: { fullName: "Second Passenger", email: "second@example.com", phone: "+94770000002" },
+        booking: {
+          id: "booking-group-2",
+          reference: "BK-GROUP0002",
+          status: "CONFIRMED",
+          trainRunId: "run-1",
+          seat: { id: "seat-2", label: "1B", coachId: "coach-1", coachCode: "R1", coachClass: "FIRST", attributes: ["AISLE"] },
+          originStationId: "station-1",
+          destinationStationId: "station-2",
+          fare: { amountMinor: 69000, currency: "LKR", currencyScale: 2 },
+          createdAt: "2026-08-03T00:00:00Z",
+        },
+      },
+    ],
+  });
+  const user = userEvent.setup();
+  const queryClient = new QueryClient({ defaultOptions: { mutations: { retry: false } } });
+  render(
+    <ReduxProvider store={store}>
+      <QueryClientProvider client={queryClient}>
+        <PassengerAuthProvider>
+          <LookupView />
+        </PassengerAuthProvider>
+      </QueryClientProvider>
+    </ReduxProvider>,
+  );
+
+  await user.type(screen.getByRole("textbox", { name: "Booking Reference" }), "GR-TESTGROUP12");
+  await user.type(screen.getByRole("textbox", { name: "Booking email or phone" }), "lead@example.com");
+  await user.click(screen.getByRole("button", { name: "Search Booking" }));
+
+  expect(getBookingByReference).toHaveBeenCalledWith("GR-TESTGROUP12", "lead@example.com");
+  expect(await screen.findByText("GR-TESTGROUP12")).toBeInTheDocument();
+  expect(screen.getByText("Lead Passenger")).toBeInTheDocument();
+  expect(screen.getByText("Second Passenger")).toBeInTheDocument();
+  expect(screen.getByText("Coach R1 · Seat 1B")).toBeInTheDocument();
+});
+
 test("creates an optional passenger account", async () => {
   const user = userEvent.setup();
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });

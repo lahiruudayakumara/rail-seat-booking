@@ -1,5 +1,5 @@
 import { api } from "./api-instance";
-import type { Booking, BookingGroup, BookingHold, CheckoutResult, CreateBookingGroupRequest, CreateBookingRequest, FareQuote, GroupCheckoutResult, PayHereCheckoutSession, PayHerePaymentStatus, Seat } from "@/types";
+import type { Booking, BookingGroup, BookingHold, BookingLookupResult, CheckoutResult, CreateBookingGroupRequest, CreateBookingRequest, FareQuote, GroupCheckoutResult, PayHereCheckoutSession, PayHerePaymentStatus, Seat } from "@/types";
 
 export const paymentProvider = import.meta.env.VITE_PAYMENT_PROVIDER === "payhere" ? "payhere" : "sandbox";
 
@@ -122,8 +122,12 @@ export const bookApi = {
   },
 
   getBookingByReference: async (reference: string, contact: string) => {
-    const res = await api.post<Booking>("/api/v1/bookings/access", {
-      reference: reference.trim().toLocaleUpperCase(),
+    const normalizedReference = reference.trim().toLocaleUpperCase();
+    const endpoint = normalizedReference.startsWith("GR-")
+      ? "/api/v1/booking-groups/access"
+      : "/api/v1/bookings/access";
+    const res = await api.post<BookingLookupResult>(endpoint, {
+      reference: normalizedReference,
       contact: normalizeBookingLookupContact(contact),
     });
     return res.data;

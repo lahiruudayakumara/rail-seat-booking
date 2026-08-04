@@ -202,6 +202,26 @@ func (s *Service) Access(ctx context.Context, request AccessRequest) (Booking, e
 	return item, err
 }
 
+func (s *Service) AccessGroup(ctx context.Context, request AccessRequest) (BookingGroup, error) {
+	reference := strings.ToUpper(strings.TrimSpace(request.Reference))
+	contact := normalizeLookupContact(request.Contact)
+	if reference == "" || contact == "" {
+		return BookingGroup{}, apperror.Validation("access", "Group reference and lead passenger email or phone are required.")
+	}
+	id, err := s.repo.FindGroupIDByReferenceAndContact(ctx, s.pool, reference, contact)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return BookingGroup{}, apperror.New(404, "BOOKING_GROUP_NOT_FOUND", "Booking group was not found.", nil)
+	}
+	if err != nil {
+		return BookingGroup{}, apperror.Wrap(err)
+	}
+	item, err := s.GetGroup(ctx, id)
+	if err == nil {
+		item.ManagementToken = s.access.Sign(item.ID)
+	}
+	return item, err
+}
+
 func normalizeLookupContact(value string) string {
 	value = strings.TrimSpace(value)
 	if strings.Contains(value, "@") {
