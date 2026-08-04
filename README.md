@@ -24,6 +24,9 @@ An enterprise-grade, runnable reserved-seat booking system designed for Sri Lank
   - [Segment Allocation Math & GiST Exclusion](#segment-allocation-math--gist-exclusion)
   - [Concurrency & Overlap Prevention Flow](#concurrency--overlap-prevention-flow)
   - [Transactional Outbox & Waitlist Architecture](#transactional-outbox--waitlist-architecture)
+- [Core Design Decisions & Alternatives](#core-design-decisions--alternatives)
+- [Challenges Encountered](#challenges-encountered)
+- [Extra Credit Features](#extra-credit-features)
 - [API Reference](#api-reference)
 - [Fare Calculation Engine](#fare-calculation-engine)
 - [Local Setup & Quickstart](#local-setup--quickstart)
@@ -332,6 +335,77 @@ sequenceDiagram
         OB->>DB: UPDATE outbox_messages SET status = 'DELIVERED'
     end
 ```
+
+---
+
+## Core Design Decisions & Alternatives
+
+### 1. Half-Open Station Ranges vs. Closed Ranges or Per-Leg Database Rows
+- **Chosen Approach**: Half-open intervals `[origin_position, destination_position)`.
+- **Reasoning**: A passenger travelling from Colombo Fort (0) to Kandy (4) occupies leg indices 0, 1, 2, and 3. Station 4 is the handover point where another passenger embarking at Kandy (4) to Badulla (7) can occupy the exact same physical seat.
+- **Alternatives Rejected**:
+  - *Closed Ranges `[0, 4]`*: Would incorrectly flag Kandy as overlapping for both passengers, wasting physical capacity.
+  - *Per-Leg Database Rows*: Storing individual row entries per leg multiplies database inserts by the number of stations and degrades write performance under high transaction volumes.
+
+### 2. PostgreSQL GiST Exclusion Constraint vs. Application/Distributed Locking
+- **Chosen Approach**: Declarative PostgreSQL `btree_gist` Exclusion Constraint (`EXCLUDE USING gist`).
+- **Reasoning**: Operates inside the database engine at write-time across any number of horizontal API replicas. Guarantees 100% ACID compliance and returns SQLSTATE `23P01` on race conditions.
+- **Alternatives Rejected**:
+  - *Application Mutexes*: Protect only a single process instance; fail completely in multi-replica deployments.
+  - *Redis Distributed Locks*: Introduce lease timeout risks, network partition fencing failures, and dual-authority synchronization overhead. Redis must never be the single source of truth for inventory.
+  - *Pessimistic `SELECT FOR UPDATE`*: Inventory availability is represented by the *absence* of conflicting rows, meaning there are no existing rows to lock prior to insertion.
+
+### 3. Modular Monolith vs. Microservices Architecture
+- **Chosen Approach**: A single Go REST API modular monolith organized by domain packages (`booking`, `availability`, `fare`, `journey`, `notification`, `passengerauth`).
+- **Reasoning**: Keeps database transactions local and atomic. Guarantees zero network latency or partial failure states between booking creation, fare calculation, and outbox event insertion.
+- **Alternatives Rejected**:
+  - *Microservices*: Adds distributed saga complexity, network latency, and eventual consistency risks before domain scale justifies the overhead.
+
+### 4. Group Aggregate Model vs. Single Wide Row / JSON Array
+- **Chosen Approach**: A parent `booking_groups` aggregate row linking to individual `bookings` rows per seat.
+- **Reasoning**: Preserves independent GiST segment exclusion checks per seat while providing a single reference, atomic payment, and unified cancellation lifecycle.
+- **Alternatives Rejected**:
+  - *JSON Seat List in One Booking Row*: Weakens database integrity checks, obscures per-seat seat maps, and complicates individual ticket cancellations.
+
+---
+
+## Challenges Encountered
+
+1. **Stale Advisory Availability Reads**:
+   - Availability queries return a point-in-time snapshot. High concurrent booking volume means seats can be taken milliseconds after being displayed.
+   - *Resolution*: The system treats availability reads as advisory and relies on database-level constraint enforcement during insert, cleanly mapping SQLSTATE `23P01` to HTTP `409 Conflict` (`SEAT_NO_LONGER_AVAILABLE`).
+
+2. **Integer Minor Unit Currency Arithmetic**:
+   - Floating-point calculations introduce rounding errors in financial transactions.
+   - *Resolution*: All fares are calculated in integer minor units (LKR cents) with explicit basis point multipliers and stored immutably in the booking row upon confirmation.
+
+3. **Safe Idempotent Retries**:
+   - Network timeouts between client and server can leave client booking states unknown.
+   - *Resolution*: Implemented `Idempotency-Key` tracking using request hash verification. Identical requests return stored responses, while hash mismatches fail with HTTP `409 Conflict`.
+
+4. **Deterministic Container Startup & Schema Migration**:
+   - API containers attempting to start before database schema migrations complete can cause crashes.
+   - *Resolution*: Configured Docker Compose healthchecks and Goose migration completion dependency chains to guarantee migrations and demonstration seeding complete prior to API launch.
+
+---
+
+## Extra Credit Features
+
+### 1. Segment-Aware Waitlist Engine
+- **Overview**: When a journey segment is sold out, passengers can join a segment-aware waitlist queue.
+- **Mechanics**:
+  - Stores ordered station bounds `[origin_position, destination_position)` and coach class preferences.
+  - When a booking is cancelled, the cancellation transaction identifies the oldest matching waitlist entry (FIFO order), verifies that a physical seat is available across the *entire requested segment*, marks the entry `NOTIFIED`, and writes a `WAITLIST_SEAT_AVAILABLE` event to the outbox.
+- **Design Trade-off (Why Auto-Reservation Was Rejected)**:
+  - Automatically converting waitlists into confirmed reservations was deliberately rejected because it risks stranding inventory behind unreachable passengers and requires complex secondary hold/payment expiry logic. The system instead notifies passengers so they can complete standard checkout.
+
+### 2. Group Bookings Aggregate (2 to 6 Seats)
+- **Overview**: Enables reserving up to 6 seats in a single atomic transaction.
+- **Mechanics**: Generates a unified group reference, assigns individual passenger profiles per seat, executes atomic GiST range validation for all seats, and processes a single payment transaction.
+
+### 3. PayHere Sandbox Checkout & Signed Webhook Receiver
+- **Overview**: Provides real payment gateway checkout simulation alongside local testing.
+- **Mechanics**: Validates PayHere Sandbox webhook callbacks by recalculating MD5 signature hashes (`md5(merchant_id + order_id + payhere_amount + payhere_currency + status_code + md5(merchant_secret))`) to prevent replay attacks and fraudulent confirmation.
 
 ---
 
