@@ -82,6 +82,8 @@ A **PostgreSQL GiST Exclusion Constraint** natively guarantees that no two activ
   - **PayHere Sandbox Integration** with verified, replay-safe webhook callback handling (`MD5` secret signature validation).
 - **Transactional Outbox Worker**: Reliable background worker delivering asynchronous events (hold expiry, waitlist notifications, SMS/Email alerts) without dual-write inconsistency.
 
+---
+
 ## 🛠️ Technology Stack
 
 | Layer | Technology | Purpose |
@@ -104,27 +106,27 @@ A **PostgreSQL GiST Exclusion Constraint** natively guarantees that no two activ
 
 ```mermaid
 flowchart TB
-    subgraph Clients[" Client Layer "]
-        P["🚆 Passenger Web App\n(React SPA)"]
-        A["🛡️ Admin Dashboard\n(React SPA)"]
+    subgraph Clients["Client Layer"]
+        P["🚆 Passenger Web App<br/>(React SPA)"]
+        A["🛡️ Admin Dashboard<br/>(React SPA)"]
     end
 
-    subgraph Edge[" Edge & Infrastructure "]
-        RP["🌐 Nginx / Reverse Proxy\n(Port 3000 / 8080)"]
+    subgraph Edge["Edge & Infrastructure"]
+        RP["🌐 Nginx / Reverse Proxy<br/>(Port 3000 / 8080)"]
     end
 
-    subgraph Application[" Backend Application "]
-        API["⚡ Go Modular Monolith API\n(Chi Router + slog)"]
-        OBW["🔄 Outbox & Hold Expiry Worker\n(Background Goroutine)"]
+    subgraph Application["Backend Application"]
+        API["⚡ Go Modular Monolith API<br/>(Chi Router + slog)"]
+        OBW["🔄 Outbox & Hold Expiry Worker<br/>(Background Goroutine)"]
     end
 
-    subgraph Storage[" Database Authority "]
-        DB[("🐘 PostgreSQL Primary\n(btree_gist Extension)")]
+    subgraph Storage["Database Authority"]
+        DB[("🐘 PostgreSQL Primary<br/>(btree_gist Extension)")]
     end
 
-    subgraph External[" External Providers "]
+    subgraph External["External Providers"]
         PY["💳 PayHere Sandbox / Webhook"]
-        NT["✉️ Notification Outbox Target\n(Email/SMS Placeholder)"]
+        NT["✉️ Notification Outbox Target<br/>(Email/SMS Placeholder)"]
     end
 
     P -->|HTTPS / REST| RP
@@ -278,20 +280,20 @@ ALTER TABLE bookings
 ```mermaid
 sequenceDiagram
     autonumber
-    actor ClientA as Passenger A (Colombo → Kandy [0,4))
-    actor ClientB as Passenger B (Peradeniya → Ella [3,6))
+    actor ClientA as Passenger A (Colombo to Kandy)
+    actor ClientB as Passenger B (Peradeniya to Ella)
     participant API as Go API Monolith
     participant DB as PostgreSQL Primary
 
-    ClientA->>API: POST /bookings (Seat S1, [0,4), Key K1)
-    ClientB->>API: POST /bookings (Seat S1, [3,6), Key K2)
+    ClientA->>API: POST /bookings (Seat S1, range 0-4, Key K1)
+    ClientB->>API: POST /bookings (Seat S1, range 3-6, Key K2)
     
     par Concurrent Execution
-        API->>DB: BEGIN TX 1; INSERT Booking A [0,4)
-        API->>DB: BEGIN TX 2; INSERT Booking B [3,6)
+        API->>DB: BEGIN TX 1; INSERT Booking A (range 0-4)
+        API->>DB: BEGIN TX 2; INSERT Booking B (range 3-6)
     end
 
-    note over DB: GiST Index evaluates range intersection int4range(0,4) && int4range(3,6)
+    note over DB: GiST Index evaluates range overlap between range 0-4 and range 3-6
 
     DB-->>API: TX 1 COMMITTED (201 Created)
     DB-->>API: TX 2 REJECTED: SQLSTATE 23P01 (Exclusion Violation)
@@ -317,7 +319,7 @@ sequenceDiagram
     API->>DB: BEGIN TX
     API->>DB: UPDATE booking SET status = 'CANCELLED'
     API->>DB: Lock oldest overlapping waitlist entry (FIFO)
-    API->>DB: Verify 1 physical seat is free for whole segment [A, B)
+    API->>DB: Verify 1 physical seat is free for whole segment
     API->>DB: UPDATE waitlist SET status = 'NOTIFIED'
     API->>DB: INSERT into outbox_messages (WAITLIST_SEAT_AVAILABLE)
     API->>DB: COMMIT TX
@@ -490,9 +492,3 @@ The system is validated through a multi-tiered testing strategy:
 
 - **License**: Released under the [MIT License](LICENSE).
 - **Data Disclaimer**: Station schedules, distances, train numbers, and fare rates included in demonstration seed data are illustrative for software testing purposes and **do not represent official Sri Lanka Railways operational data**.
-
----
-
-<p center="align">
-  Built with ❤️ for resilient public transport technology.
-</p>
