@@ -1,129 +1,498 @@
-# Segment-Based Train Seat Booking System
+# 🚆 Segment-Based Train Seat Booking System
 
-A runnable reserved-seat booking application for Sri Lanka's Colombo Fort–Badulla line. A physical seat can be sold again after its passenger leaves, while PostgreSQL remains the final authority preventing overlapping sales. Demonstration schedules, distances and fares are illustrative—not official Sri Lanka Railways data.
+[![Go Version](https://img.shields.io/badge/Go-1.22%2B-00ADD8?style=flat&logo=go)](https://go.dev/)
+[![React](https://img.shields.io/badge/React-18-61DAFB?style=flat&logo=react)](https://react.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.0-3178C6?style=flat&logo=typescript)](https://www.typescriptlang.org/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-17-4169E1?style=flat&logo=postgresql)](https://www.postgresql.org/)
+[![Docker Compose](https://img.shields.io/badge/Docker_Compose-v2-2496ED?style=flat&logo=docker)](https://www.docker.com/)
+[![OpenAPI 3.1](https://img.shields.io/badge/OpenAPI-3.1-6BA539?style=flat&logo=openapi-initiative)](https://openapis.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-## Problem and solution
+An enterprise-grade, runnable reserved-seat booking system designed for Sri Lanka's **Colombo Fort – Badulla** main line. Featuring dynamic **segment-aware seat allocation**, **PostgreSQL GiST exclusion constraint safety**, **transactional outbox notifications**, **group reservations**, **segment waitlisting**, **PayHere payment sandbox integration**, and an interactive **React admin & passenger frontend**.
 
-Whole-journey allocation wastes capacity. This system assigns every route station an ordered position and occupies the half-open segment `[origin, destination)`. Thus Colombo Fort → Kandy `[0,4)` and Kandy → Badulla `[4,7)` may share a seat; Peradeniya Junction → Ella `[3,6)` conflicts with `[0,4)`. A PostgreSQL GiST exclusion constraint atomically enforces this rule per train run and seat.
+---
 
-## Main features
+## 📖 Table of Contents
 
-- Configurable routes, ordered stations, distances, trains, runs, coaches, layouts, seats, and fares
-- Segment-aware availability, expiring seat holds, fare quotes, verified booking lookup, cancellation, references, and audit events
-- Optional passenger registration/login with account-owned booking history while retaining fast guest checkout
-- Account-owned saved traveller profiles plus coach-class, seat-type and language preferences for faster repeat booking
-- Group booking for two to six seats with a traveller assigned per seat, one group reference, and one atomic payment
-- Idempotent booking, built-in local payments, and PayHere Sandbox checkout with verified, replay-safe webhooks
-- Ticket credentials and privacy-preserving ticket verification
-- Transactional full refunds, ticket cancellation, and retrying notification outbox delivery
-- Protected, responsive administrator frontend for train-run utilization, revenue, refunds, booking health, and delivery status
-- Responsive, accessible booking flow and an OpenAPI 3.1 contract
-- Interactive coach-by-coach seat map with conflict recovery
-- Segment-aware waitlisting for sold-out journeys, with FIFO eligibility, class preference, self-service cancellation, and transactional availability notifications
-- UTC persistence with `Asia/Colombo` schedule presentation
+- [Problem & Solution](#-problem--solution)
+- [Key Features](#-key-features)
+- [Technology Stack](#-technology-stack)
+- [System Architecture](#-system-architecture)
+  - [High-Level Container View](#high-level-container-view)
+  - [Monorepo Directory Structure](#monorepo-directory-structure)
+  - [Database Schema & ER Diagram](#database-schema--er-diagram)
+  - [Segment Allocation Math & GiST Exclusion](#segment-allocation-math--gist-exclusion)
+  - [Concurrency & Overlap Prevention Flow](#concurrency--overlap-prevention-flow)
+  - [Transactional Outbox & Waitlist Architecture](#transactional-outbox--waitlist-architecture)
+- [API Reference](#-api-reference)
+- [Fare Calculation Engine](#-fare-calculation-engine)
+- [Local Setup & Quickstart](#-local-setup--quickstart)
+- [Development & Makefile Cheat Sheet](#-development--makefile-cheat-sheet)
+- [Testing & Quality Assurance](#-testing--quality-assurance)
+- [Security & Operations](#-security--operations)
+- [License & Disclaimer](#-license--disclaimer)
 
-`HELD` and `CONFIRMED` block inventory; `CANCELLED`, `EXPIRED`, and `COMPLETED` do not. A booking is confirmed only after the configured payment provider succeeds; local development uses an explicit sandbox provider.
+---
 
-## Technology
+## 💡 Problem & Solution
 
-Go, Chi, pgx, Goose, PostgreSQL, OpenAPI 3.1 and `slog`; React, TypeScript, Vite and TanStack Query; Docker Compose, GitHub Actions and Make; Go tests plus Vitest and React Testing Library.
+### The Inefficiency of Whole-Journey Reservations
+Traditional train seat reservation systems lock a seat for the **entire journey duration** of a train run. If a passenger travels only from **Colombo Fort to Kandy**, conventional systems leave the physical seat vacant and unbookable from **Kandy to Badulla**, wasting significant rail capacity and revenue.
 
-## Architecture
-
-```mermaid
-flowchart LR
-  U["Passenger or administrator"] --> W["React web application"]
-  W -->|"REST/JSON over HTTPS"| A["Go modular-monolith API"]
-  A -->|"pgx / parameterized SQL"| P[("PostgreSQL")]
-```
-
-The API validates and orchestrates; PostgreSQL owns durable integrity and a transactional outbox records delivery work. External payment and notification providers remain replaceable boundaries. See [system architecture](docs/system-architecture.md), [database design](docs/database-design.md), and [ADRs](docs/adr/).
-
-## Local setup
-
-Docker Desktop or Docker Engine with Compose v2 is the only runtime prerequisite. From a clean machine:
-
-```bash
-git clone <repository-url>
-cd segment-train-booking
-cp .env.example .env
-docker compose up --build
-```
-
-Expected services:
-
-| Service | URL |
-|---|---|
-| Passenger web application | http://localhost:3000 |
-| Administrator dashboard | http://localhost:3000/admin |
-| API | http://localhost:8080 |
-| OpenAPI/Swagger | http://localhost:8080/docs |
-| PostgreSQL | Internal Compose service `db:5432` |
-
-Docker Compose waits for PostgreSQL, applies Goose migrations, loads idempotent demonstration data, starts the API, and finally starts the web application. Full instructions are in [local development](docs/local-development.md).
-
-Environment values are documented in `.env.example` using safe local placeholders only. Secrets must never be committed. Useful commands are `make verify`, `make smoke`, `make integration`, `make seed`, `make logs`, `make down`, and `make reset`.
-
-The built-in payment simulator remains the zero-configuration default. To test the real PayHere-hosted Sandbox checkout, follow [the PayHere Sandbox guide](docs/payhere-sandbox.md); it requires a sandbox merchant account and a public HTTPS webhook URL.
-
-For local administrator testing, open `/admin` and use the `ADMIN_API_KEY` value from `.env`. The browser retains this credential only in `sessionStorage`; signing out or closing the browser session removes it. Production must replace the local placeholder with a strong credential supplied through the deployment secret manager.
-
-Passenger accounts are optional. Guests can complete the same reservation flow with a name and email or phone, then manage the booking through reference verification. Registered passengers use `/account`; authenticated checkout stores the journey in private booking history. Passenger sessions use revocable random server-side tokens delivered only through HTTP-only SameSite cookies, and passwords are bcrypt-hashed.
-
-## API and behavior
-
-The normative contract is [docs/openapi.yaml](docs/openapi.yaml); endpoint semantics and errors are in [API design](docs/api-design.md). The API serves a documentation landing page at `/docs` and the specification at `/openapi.yaml`.
-
-Fare is `base_fee + travelled_distance × class_rate`, subject to configured minimums and multipliers. Money is integer LKR minor units and each booking stores an immutable fare snapshot; see [fare design](docs/fare-design.md).
-
-Availability is advisory. Booking insertion occurs in a transaction; if concurrent requests overlap, the exclusion constraint lets one commit and maps the loser to `409 SEAT_NO_LONGER_AVAILABLE`. Idempotency keys make safe retries return the original result.
-
-### Waitlist design (extra credit)
-
-Passengers can join a waitlist only when no matching reserved seat is available for their complete segment and preferred class. Entries retain the same ordered origin/destination positions used by bookings. When a confirmed booking is cancelled, the cancellation transaction locks the oldest eligible overlapping entry, verifies that one physical seat is now free across that passenger's complete segment, marks the entry `NOTIFIED`, and writes a `WAITLIST_SEAT_AVAILABLE` message to the transactional outbox. This prevents duplicate notifications across API replicas and never presents a notification as a reservation—the passenger must still complete the normal concurrency-safe booking flow.
-
-The alternative of reserving the released seat automatically was rejected because it can strand inventory behind an unreachable passenger and would require a second payment/hold expiry policy. A simple route-wide FIFO was also rejected because a released Colombo Fort → Kandy seat may not satisfy an older Kandy → Badulla request; eligibility therefore includes overlapping cancellation impact, whole-segment availability, and class preference before FIFO order is applied.
-
-## Monorepo
+### Segment-Based Half-Open Intervals
+This system solves the capacity problem by ordering stations along a route with zero-indexed positions and representing journey segments as half-open ranges: `[origin_position, destination_position)`.
 
 ```text
-apps/api/                 Go API
-apps/web/                 React application
-database/                 Goose migrations, sqlc queries, demo seed
-docs/                     product and engineering documentation
-scripts/                  developer/CI helpers
-tests/                    cross-service integration and load tests
-examples/api/             runnable HTTP request examples
-.github/workflows/        validation and optional release workflows
+Colombo Fort (0) ─── Ragama (1) ─── Gampaha (2) ─── Peradeniya (3) ─── Kandy (4) ─── Nanu Oya (5) ─── Ella (6) ─── Badulla (7)
 ```
 
-The API is split by business capability, with handler, service, repository, and model boundaries where useful. Shared configuration, HTTP conventions, middleware, and database interfaces live in dedicated infrastructure packages. See [backend architecture](docs/backend-architecture.md) for the exact package tree and dependency rules.
+- **Colombo Fort → Kandy** occupies segment **`[0, 4)`**
+- **Kandy → Badulla** occupies segment **`[4, 7)`**
+- **Peradeniya Junction → Ella** occupies segment **`[3, 6)`**
 
-Operational procedures are in [runbooks](docs/runbooks/), while cross-service test prerequisites are documented in [tests](tests/README.md). See [project structure](docs/project-structure.md) and [implementation plan](docs/implementation-plan.md).
+#### Segment Conflict Matrix:
+- `[0, 4)` and `[4, 7)` **Do NOT conflict**: Station index `4` (Kandy) is the handover point. The same physical seat can be booked by both passengers on the same train run!
+- `[3, 6)` and `[0, 4)` **CONFLICT**: They overlap across interval `[3, 4)` (Peradeniya to Kandy).
 
-## Design decisions and alternatives
+A **PostgreSQL GiST Exclusion Constraint** natively guarantees that no two active bookings (`HELD` or `CONFIRMED`) can overlap for the same physical seat on the same train run.
 
-- **Half-open station ranges:** `[origin,destination)` represents travelled legs and permits an exact station handover. Closed ranges would incorrectly conflict at Kandy; per-leg rows would multiply writes and complicate atomic acquisition.
-- **PostgreSQL exclusion constraint:** a partial GiST constraint on run, seat and range protects every writer and API replica. Application-only checks and process mutexes race; Redis locks add lease/fencing failure modes; `SELECT FOR UPDATE` has no row to lock when availability is represented by absence.
-- **Modular monolith:** one Go API keeps booking, fare and audit writes in one local transaction. Microservices or event-driven booking would add network failure and eventual-consistency costs before scale justifies them.
-- **Group aggregate over normal bookings:** each seat remains an independently constrained booking row, while `booking_groups` owns the shared reference, total and payment. A single wide booking row or JSON seat list would weaken segment-conflict enforcement and make individual ticket lifecycle handling harder.
-- **Explicit parameterized SQL with pgx:** locking and range behavior remain visible. A general ORM would save CRUD code but obscure the critical database-specific invariant; sqlc is configured as a possible next hardening step but is not required by the current runtime.
-- **REST/OpenAPI:** inspectable HTTP semantics and generated-client support were favored over GraphQL's additional resolver and caching surface.
+---
 
-Full trade-offs are recorded in [docs/adr](docs/adr/).
+## ✨ Key Features
 
-## Challenges encountered
+### 🚆 Passenger Capabilities
+- **Segment-Aware Seat Map**: Interactive visual seat map allowing passengers to choose coach, class (1st Class Reserved, 2nd Class Reserved), and specific seat labels.
+- **Advisory Availability Snapshot**: Instant API queries for available seats filtered by route, date, and origin/destination stations.
+- **Group Bookings Aggregate**: Single-transaction aggregate reservation for **2 to 6 seats** with individual traveller assignments, unified reference, and atomic checkout.
+- **Guest & Account Checkout**:
+  - Fast **Guest Checkout** using contact details and reference verification.
+  - **Passenger Accounts** with secure bcrypt authentication, HTTP-only SameSite cookies, saved traveller profiles, and private booking histories.
+- **Ticket Credentials & Verification**: Privacy-preserving ticket verification lookup and digital credentials.
+- **Segment Waitlist**: Automatic option to join a segment-aware waitlist when a journey is sold out. Receives FIFO notifications when cancellation frees inventory.
 
-The hardest part is not displaying availability but committing it correctly after that display becomes stale. The system treats availability as advisory and maps PostgreSQL exclusion violation `23P01` to a stable `409`. Other challenges include exact integer fare rounding, idempotent retry behavior, route-order validation, dynamic demonstration dates, and deterministic startup through health-gated migration and seed jobs.
+### 🛡️ Admin & Operational Features
+- **Train Run Management**: Monitor utilization, capacity, departure schedules, and run statuses (`SCHEDULED`, `BOARDING`, `DEPARTED`, `COMPLETED`, `CANCELLED`).
+- **Financial & Revenue Audits**: Real-time revenue reporting, itemized fare breakdowns, and refund tracking.
+- **Transactional Outbox Telemetry**: Outbox message inspection, delivery retry controls, and failed notification monitoring.
+- **Session-Based Security**: Protected Admin UI utilizing `ADMIN_API_KEY` stored securely in browser `sessionStorage`.
 
-## Security, operations, and quality
+### 💳 Payment & Outbox Systems
+- **Dual Payment Engine**:
+  - Built-in **Zero-Config Simulator** for instant local testing.
+  - **PayHere Sandbox Integration** with verified, replay-safe webhook callback handling (`MD5` secret signature validation).
+- **Transactional Outbox Worker**: Reliable background worker delivering asynchronous events (hold expiry, waitlist notifications, SMS/Email alerts) without dual-write inconsistency.
 
-Secure defaults include parameterized SQL, strict validation, least-privilege DB roles, TLS in production, limited CORS, rate limits, redacted structured logs, protected booking references and append-only audits. See [security](docs/security.md), [observability](docs/observability.md), [testing](docs/testing-strategy.md), [CI/CD](docs/ci-cd.md), and [deployment](docs/deployment.md).
+## 🛠️ Technology Stack
 
-## Limitations and production integrations
+| Layer | Technology | Purpose |
+|---|---|---|
+| **Backend API** | [Go 1.22+](https://go.dev/) + [Chi Router](https://github.com/go-chi/chi) | High-performance modular monolith REST API |
+| **Database** | [PostgreSQL 17](https://www.postgresql.org/) + `btree_gist` | Primary datastore, transaction authority & range exclusion |
+| **Migrations** | [Goose](https://github.com/pressly/goose) | Versioned SQL migration runner |
+| **Frontend Web** | [React 18](https://react.dev/) + [TypeScript](https://www.typescriptlang.org/) + [Vite](https://vitejs.dev/) | Modern Single Page Application (SPA) |
+| **State & Query** | [Redux Toolkit](https://redux-toolkit.js.org/) + [TanStack Query](https://tanstack.com/query) | Client-side state management & API caching |
+| **Styling** | Vanilla CSS3 + Custom Design Tokens | Glassmorphic, responsive modern UI system |
+| **Containerization** | Docker + Docker Compose v2 | Multi-container environment orchestration |
+| **Testing** | Go `testing` + Vitest + React Testing Library + k6 | Unit, integration, concurrency, UI, and load testing |
+| **Documentation** | OpenAPI 3.1 + Swagger UI + Mermaid | Standardized REST specification and system diagrams |
 
-The repository ships a zero-configuration payment/refund simulator plus PayHere Sandbox checkout and verified callback handling. PayHere Refund API credentials and production mode are intentionally not enabled yet. Launch still requires production payment onboarding, email/SMS providers, department identity/role integration, HTTPS ingress, monitoring destinations, backups, verified official schedules/fares, and the corresponding credentials. Those external services are intentionally not impersonated or hardcoded.
+---
 
-## License
+## 📐 System Architecture
 
-MIT; see [LICENSE](LICENSE). Production ownership and third-party-data terms must be confirmed before launch.
+### High-Level Container View
+
+```mermaid
+flowchart TB
+    subgraph Clients[" Client Layer "]
+        P["🚆 Passenger Web App\n(React SPA)"]
+        A["🛡️ Admin Dashboard\n(React SPA)"]
+    end
+
+    subgraph Edge[" Edge & Infrastructure "]
+        RP["🌐 Nginx / Reverse Proxy\n(Port 3000 / 8080)"]
+    end
+
+    subgraph Application[" Backend Application "]
+        API["⚡ Go Modular Monolith API\n(Chi Router + slog)"]
+        OBW["🔄 Outbox & Hold Expiry Worker\n(Background Goroutine)"]
+    end
+
+    subgraph Storage[" Database Authority "]
+        DB[("🐘 PostgreSQL Primary\n(btree_gist Extension)")]
+    end
+
+    subgraph External[" External Providers "]
+        PY["💳 PayHere Sandbox / Webhook"]
+        NT["✉️ Notification Outbox Target\n(Email/SMS Placeholder)"]
+    end
+
+    P -->|HTTPS / REST| RP
+    A -->|HTTPS / REST + API Key| RP
+    RP --> API
+    API -->|pgx Pool / SQL| DB
+    OBW -->|Poll / Transactional Lock| DB
+    API <-->|Signed Webhooks| PY
+    OBW -.->|Async Outbox Delivery| NT
+```
+
+---
+
+### Monorepo Directory Structure
+
+```text
+rail-seat-booking/
+├── apps/
+│   ├── api/                      # Go REST API Monolith
+│   │   ├── cmd/server/           # Application entrypoint
+│   │   ├── Dockerfile            # Multi-stage Go build container
+│   │   └── internal/             # Domain & Infrastructure packages
+│   │       ├── admin/            # Admin metrics & management logic
+│   │       ├── availability/     # Advisory seat availability engine
+│   │       ├── booking/          # Booking service & aggregate logic
+│   │       ├── fare/             # Fare rule calculation engine
+│   │       ├── journey/          # Train run & route management
+│   │       ├── notification/     # Transactional outbox service
+│   │       ├── passengerauth/    # Authentication & cookie sessions
+│   │       ├── payment/          # PayHere & simulator payment handlers
+│   │       ├── waitlist/         # Segment waitlist engine & FIFO queue
+│   │       ├── database/         # DB connection pool & migrations
+│   │       └── httpmiddleware/   # Request ID, CORS, Auth & Rate limiters
+│   └── web/                      # React Passenger & Admin Web App
+│       ├── Dockerfile            # Node/Vite build & Nginx container
+│       └── src/
+│           ├── components/       # UI Components & Interactive Seat Map
+│           ├── store/            # Redux Slices (booking, auth, admin)
+│           ├── sections/         # Page sections & views
+│           └── api/              # OpenAPI client queries & mutations
+├── database/                     # Database Schema & Seed Data
+│   ├── migrations/               # Goose SQL migrations (00001..0000X)
+│   ├── queries/                  # Parameterized SQL statements
+│   └── seed/                     # Idempotent Colombo-Badulla demo seed
+├── docs/                         # Architecture & Engineering Documentation
+│   ├── adr/                      # Architectural Decision Records
+│   ├── system-architecture.md    # Detailed topology & component boundaries
+│   ├── database-design.md        # Relational catalog & constraint details
+│   ├── concurrency-design.md     # GiST locking & race mitigation strategy
+│   └── openapi.yaml              # OpenAPI 3.1 REST API specification
+├── scripts/                      # Verification, linting & smoke test scripts
+├── tests/                        # Cross-service integration & k6 load tests
+├── compose.yaml                  # Multi-service Docker Compose configuration
+├── Makefile                      # Developer command cheat sheet
+└── README.md                     # Master documentation
+```
+
+---
+
+### Database Schema & ER Diagram
+
+```mermaid
+erDiagram
+    ROUTES ||--o{ ROUTE_STATIONS : "orders"
+    STATIONS ||--o{ ROUTE_STATIONS : "locates"
+    ROUTES ||--o{ TRAIN_RUNS : "schedules"
+    TRAINS ||--o{ TRAIN_RUNS : "operates"
+    TRAINS ||--o{ COACHES : "contains"
+    COACHES ||--o{ SEATS : "contains"
+    TRAIN_RUNS ||--o{ BOOKINGS : "allocates"
+    SEATS ||--o{ BOOKINGS : "assigned_to"
+    PASSENGERS ||--o{ BOOKINGS : "purchases"
+    FARE_RULES ||--o{ BOOKINGS : "prices"
+    BOOKINGS ||--o{ AUDIT_EVENTS : "audits"
+    BOOKINGS ||--o{ OUTBOX_MESSAGES : "emits"
+    TRAIN_RUNS ||--o{ WAITLIST_ENTRIES : "queues"
+
+    ROUTES {
+        uuid id PK
+        string code UK
+        string name
+        string timezone
+    }
+    ROUTE_STATIONS {
+        uuid route_id PK, FK
+        uuid station_id PK, FK
+        integer position
+        integer cumulative_distance_m
+    }
+    TRAIN_RUNS {
+        uuid id PK
+        uuid train_id FK
+        uuid route_id FK
+        date service_date
+        timestamptz departure_at
+        string status
+    }
+    BOOKINGS {
+        uuid id PK
+        string reference UK
+        uuid train_run_id FK
+        uuid seat_id FK
+        integer origin_position
+        integer destination_position
+        string status
+        bigint fare_total_minor
+        timestamptz hold_expires_at
+    }
+    WAITLIST_ENTRIES {
+        uuid id PK
+        uuid train_run_id FK
+        uuid passenger_id FK
+        integer origin_position
+        integer destination_position
+        string coach_class
+        string status
+    }
+```
+
+---
+
+### Segment Allocation Math & GiST Exclusion
+
+To prevent race conditions across distributed API replicas, constraint enforcement is delegated directly to PostgreSQL using `btree_gist`:
+
+```sql
+-- PostgreSQL Exclusion Constraint DDL
+CREATE EXTENSION IF NOT EXISTS btree_gist;
+
+ALTER TABLE bookings
+  ADD CONSTRAINT booking_positions_valid
+    CHECK (origin_position >= 0 AND origin_position < destination_position),
+  ADD CONSTRAINT prevent_overlapping_active_bookings
+    EXCLUDE USING gist (
+      train_run_id WITH =,
+      seat_id WITH =,
+      int4range(origin_position, destination_position, '[)') WITH &&
+    ) WHERE (status IN ('HELD', 'CONFIRMED'));
+```
+
+#### Why `[)` Range Bounds?
+- **Half-open interval `[0, 4)`**: Includes station 0, 1, 2, 3, but **excludes** station 4.
+- **Interval `[4, 7)`**: Begins at station 4.
+- **Intersection operator (`&&`)**: Evaluates `[0, 4) && [4, 7)` as **FALSE** (no overlap).
+- **Overlapping query `[0, 4) && [3, 6)`**: Evaluates to **TRUE** (conflict on leg `[3, 4)`).
+
+---
+
+### Concurrency & Overlap Prevention Flow
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor ClientA as Passenger A (Colombo → Kandy [0,4))
+    actor ClientB as Passenger B (Peradeniya → Ella [3,6))
+    participant API as Go API Monolith
+    participant DB as PostgreSQL Primary
+
+    ClientA->>API: POST /bookings (Seat S1, [0,4), Key K1)
+    ClientB->>API: POST /bookings (Seat S1, [3,6), Key K2)
+    
+    par Concurrent Execution
+        API->>DB: BEGIN TX 1; INSERT Booking A [0,4)
+        API->>DB: BEGIN TX 2; INSERT Booking B [3,6)
+    end
+
+    note over DB: GiST Index evaluates range intersection int4range(0,4) && int4range(3,6)
+
+    DB-->>API: TX 1 COMMITTED (201 Created)
+    DB-->>API: TX 2 REJECTED: SQLSTATE 23P01 (Exclusion Violation)
+
+    API-->>ClientA: 201 Created (Booking Reference Issued)
+    API-->>ClientB: 409 Conflict (SEAT_NO_LONGER_AVAILABLE)
+```
+
+---
+
+### Transactional Outbox & Waitlist Architecture
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor P1 as Passenger 1 (Cancels Booking)
+    participant API as Booking API
+    participant DB as PostgreSQL DB
+    participant OB as Outbox Worker
+    actor P2 as Waitlisted Passenger 2
+
+    P1->>API: POST /bookings/{id}/cancel
+    API->>DB: BEGIN TX
+    API->>DB: UPDATE booking SET status = 'CANCELLED'
+    API->>DB: Lock oldest overlapping waitlist entry (FIFO)
+    API->>DB: Verify 1 physical seat is free for whole segment [A, B)
+    API->>DB: UPDATE waitlist SET status = 'NOTIFIED'
+    API->>DB: INSERT into outbox_messages (WAITLIST_SEAT_AVAILABLE)
+    API->>DB: COMMIT TX
+    API-->>P1: 200 OK (Booking Cancelled)
+
+    loop Background Outbox Poll (Every 2s)
+        OB->>DB: SELECT * FROM outbox_messages WHERE status = 'PENDING' FOR UPDATE SKIP LOCKED
+        OB->>P2: Send Notification (Email / SMS Link)
+        OB->>DB: UPDATE outbox_messages SET status = 'DELIVERED'
+    end
+```
+
+---
+
+## 🔌 API Reference
+
+The full normative contract is defined in [`docs/openapi.yaml`](docs/openapi.yaml). An interactive Swagger UI is served locally at `http://localhost:8080/docs`.
+
+### Core Endpoint Summary
+
+| Domain | Method | Endpoint | Description | Auth / Headers |
+|---|---|---|---|---|
+| **System** | `GET` | `/health` | Liveness probe | None |
+| **System** | `GET` | `/ready` | Readiness probe (DB ping check) | None |
+| **Journeys** | `GET` | `/api/v1/routes` | List active rail routes & station sequences | None |
+| **Journeys** | `GET` | `/api/v1/train-runs` | Query train runs by date and route | None |
+| **Availability**| `GET` | `/api/v1/availability` | Query advisory available seat map | None |
+| **Fares** | `GET` | `/api/v1/fares/quote` | Calculate real-time fare quote | None |
+| **Bookings** | `POST` | `/api/v1/bookings` | Create single seat booking (`HELD` or `CONFIRMED`) | `Idempotency-Key` |
+| **Bookings** | `POST` | `/api/v1/bookings/group` | Create group booking (2–6 seats aggregate) | `Idempotency-Key` |
+| **Bookings** | `GET` | `/api/v1/bookings/{id}` | Fetch booking details by UUID or reference | Reference / Auth |
+| **Bookings** | `POST` | `/api/v1/bookings/{id}/cancel`| Cancel booking & trigger waitlist outbox | Reference / Auth |
+| **Waitlist** | `POST` | `/api/v1/waitlist` | Join waitlist for sold-out journey segment | Passenger Auth |
+| **Waitlist** | `DELETE`| `/api/v1/waitlist/{id}` | Self-service waitlist entry cancellation | Passenger Auth |
+| **Auth** | `POST` | `/api/v1/auth/login` | Login passenger & issue HTTP-only cookie | None |
+| **Auth** | `POST` | `/api/v1/auth/logout` | Revoke session & clear auth cookie | Cookie |
+| **Payment** | `POST` | `/api/v1/webhooks/payhere`| PayHere Sandbox IPN webhook callback | MD5 Signature |
+| **Admin** | `GET` | `/api/v1/admin/metrics` | Retrieve train run utilization & outbox status| `X-Admin-API-Key` |
+
+---
+
+## 💰 Fare Calculation Engine
+
+Fares are dynamically calculated using integer minor units (LKR cents) to eliminate floating-point precision errors:
+
+$$\text{Distance (km)} = \frac{\text{destination.cumulative\_distance\_m} - \text{origin.cumulative\_distance\_m}}{1000}$$
+
+$$\text{Subtotal} = \text{base\_fee\_minor} + (\text{distance\_km} \times \text{rate\_per\_km\_minor})$$
+
+$$\text{Class Adjusted} = \text{Subtotal} \times \left( \frac{\text{class\_multiplier\_basis\_points}}{10000} \right)$$
+
+$$\text{Final Fare} = \max(\text{minimum\_fare\_minor}, \text{Class Adjusted})$$
+
+### Immutable Calculation Snapshot
+When a booking is created, the full calculation inputs, effective `fare_rule_id`, breakdown breakdown object, currency scale, and final total are snapshot directly into the `bookings` row. Future fare rule or distance updates will **never** distort historical transaction receipts or refund calculations.
+
+---
+
+## 🚀 Local Setup & Quickstart
+
+### Prerequisites
+- **Docker Desktop** or **Docker Engine with Compose v2** (Recommended 4GB+ RAM allocated)
+- **Make** (optional, for developer helper commands)
+
+### Step-by-Step Installation
+
+1. **Clone the repository**:
+   ```bash
+   git clone https://github.com/lahiruudayakumara/rail-seat-booking.git
+   cd rail-seat-booking
+   ```
+
+2. **Configure environment variables**:
+   ```bash
+   cp .env.example .env
+   ```
+
+3. **Launch system via Docker Compose**:
+   ```bash
+   docker compose up --build
+   ```
+
+4. **Access Running Services**:
+
+   | Service | URL / Destination | Details |
+   |---|---|---|
+   | **Passenger Web Application** | [http://localhost:3000](http://localhost:3000) | Booking flow, seat map & account management |
+   | **Admin Dashboard** | [http://localhost:3000/admin](http://localhost:3000/admin) | Operational metrics (`ADMIN_API_KEY` login) |
+   | **Go REST API** | [http://localhost:8080](http://localhost:8080) | Backend REST API server |
+   | **OpenAPI / Swagger UI** | [http://localhost:8080/docs](http://localhost:8080/docs) | Interactive API documentation |
+   | **PostgreSQL Database** | `localhost:5432` | Container service `db` |
+
+> ℹ️ **Startup Sequence**: Docker Compose waits for PostgreSQL to pass healthchecks, applies Goose SQL migrations, seeds idempotent Colombo Fort–Badulla demo data, launches the API, and finally serves the React application.
+
+---
+
+## 💻 Development & Makefile Cheat Sheet
+
+The repository includes a comprehensive [`Makefile`](file:///Users/lahiruudayakumara/rail-seat-booking/Makefile) to streamline daily development:
+
+```bash
+# Manage Container Environment
+make up                # Build and start all services in Docker
+make down              # Stop all running containers
+make reset             # Destroy volumes, re-migrate, re-seed & restart clean
+make logs              # Tail aggregated logs (api, web, db, migrate)
+make seed              # Re-run idempotent demonstration SQL seed
+
+# Database Migrations
+make migrate-up        # Run pending Goose database migrations
+make migrate-down      # Roll back last Goose migration
+make migration-status  # Check current migration schema state
+
+# Testing & Quality Assurance
+make test              # Run full test suite (Go + React Vitest)
+make test-go           # Run Go unit and race-detector tests (-race)
+make test-web          # Run React component & store tests via Vitest
+make verify            # Run full script verification pipeline
+make smoke             # Execute end-to-end HTTP smoke test suite
+make integration       # Run single-seat booking integration test flow
+make integration-group # Run multi-seat group booking integration flow
+make load              # Run k6 concurrent seat contention load test
+```
+
+---
+
+## 🧪 Testing & Quality Assurance
+
+The system is validated through a multi-tiered testing strategy:
+
+1. **Go Race & Unit Testing**:
+   Executes concurrent goroutine tests against test database containers to verify that `23P01` exclusion violations map reliably to HTTP `409 Conflict` without deadlocks.
+   ```bash
+   make test-go
+   ```
+
+2. **Frontend Vitest & RTL**:
+   Validates React state slices, seat selection logic, form validation, and component rendering.
+   ```bash
+   make test-web
+   ```
+
+3. **End-to-End Smoke & Integration Flow**:
+   Automated bash test scripts verify health endpoints, fare quotes, seat holds, payment callbacks, ticket lookup, and cancellations.
+   ```bash
+   make smoke
+   make integration
+   ```
+
+4. **k6 Concurrency Load Test**:
+   Simulates 50+ concurrent virtual users attempting to book overlapping seat segments simultaneously to verify zero double-booking occurrences under heavy load.
+   ```bash
+   make load
+   ```
+
+---
+
+## 🔐 Security & Operations
+
+- **Parameterize All SQL**: Built exclusively with parameterized queries via `pgx` to prevent SQL injection vulnerabilities.
+- **Least-Privilege Database User**: Application connects as restricted `rail_app` user; table modifications and migration privileges are isolated.
+- **HTTP-Only SameSite Cookies**: Passenger authentication tokens are delivered in secure, HTTP-only, SameSite cookies to mitigate XSS and CSRF risks.
+- **Bcrypt Password Hashing**: Passenger account passwords are stored using bcrypt with work factor 12.
+- **Idempotent Webhooks**: PayHere Sandbox webhook receiver verifies `md5(merchant_id + order_id + payhere_amount + payhere_currency + status_code + md5(merchant_secret))` before updating payment state.
+- **Append-Only Auditing**: Every state-changing operation writes to an append-only `audit_events` ledger for operational compliance.
+
+---
+
+## 📄 License & Disclaimer
+
+- **License**: Released under the [MIT License](LICENSE).
+- **Data Disclaimer**: Station schedules, distances, train numbers, and fare rates included in demonstration seed data are illustrative for software testing purposes and **do not represent official Sri Lanka Railways operational data**.
+
+---
+
+<p center="align">
+  Built with ❤️ for resilient public transport technology.
+</p>

@@ -5,8 +5,8 @@ The application is containerized for a clean-machine workflow.
 Prerequisites: Git and Docker Engine/Desktop with Compose v2. Go 1.25, Node 24 and pnpm 11.14 are optional for running services natively. Allocate at least 4 GB to Docker.
 
 ```bash
-git clone <repository-url>
-cd segment-train-booking
+git clone https://github.com/lahiruudayakumara/rail-seat-booking.git
+cd rail-seat-booking
 cp .env.example .env
 docker compose up --build
 ```
