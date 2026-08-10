@@ -21,7 +21,7 @@ ENV VITE_PAYMENT_PROVIDER=$VITE_PAYMENT_PROVIDER
 RUN pnpm --filter @rail/web build
 
 # Production Nginx stage
-FROM nginxinc/nginx-unprivileged:1.29-alpine AS prod
+FROM nginxinc/nginx-unprivileged:1.31-alpine AS prod
 COPY apps/web/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /src/apps/web/dist /usr/share/nginx/html
 EXPOSE 8080
