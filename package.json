@@ -11,6 +11,6 @@
     "test": "pnpm --filter @rail/web test"
   },
   "devDependencies": {
-    "@redocly/cli": "^2.43.2"
+    "@redocly/cli": "^2.49.0"
   }
 }
